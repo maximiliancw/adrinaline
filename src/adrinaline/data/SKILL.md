@@ -18,8 +18,10 @@ Write one for decisions that are expensive to reverse: architecture, frameworks 
 
 ## Writing one
 
+Set `--scope GLOB` (repeatable, repository-relative) so `adr for <path>` finds the ADR.
+
 ```bash
-adr new "Use PostgreSQL for persistence" --tag storage --body-file - <<'EOF'
+adr new "Use PostgreSQL for persistence" --tag storage --scope "src/db/**" --body-file - <<'EOF'
 ## Context and Problem Statement
 
 …

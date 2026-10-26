@@ -62,7 +62,7 @@ def test_resolve():
 def test_render_new_replaces_body_and_merges_tags():
     template = "---\nstatus: proposed\ndate: YYYY-MM-DD\ntags: [team]\n---\n# {title}\n\n## Old\n"
     text = repo.render_new(
-        template, "Use X", Status.ACCEPTED, dt.date(2026, 1, 15), "New body\n", ["db"]
+        template, "Use X", Status.ACCEPTED, dt.date(2026, 1, 15), "New body\n", ["db"], []
     )
     assert text == (
         "---\nstatus: accepted\ndate: 2026-01-15\ntags: [db, team]\n---\n# Use X\n\nNew body\n"

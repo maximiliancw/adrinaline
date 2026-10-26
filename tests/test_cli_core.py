@@ -33,6 +33,15 @@ def test_new_from_subdirectory(initialized):  # AC3
     assert "status: proposed" in text and f"date: {TODAY}" in text and "# Use PostgreSQL" in text
 
 
+def test_new_with_scope(initialized):
+    data = initialized.adr(
+        "new", "Pool", "--scope", "src/db/**", "--scope", "*.sql", "--json"
+    ).json()
+    assert data["scope"] == ["src/db/**", "*.sql"]
+    assert initialized.adr("new", "Bad", "--scope", "../x").code != 0
+    assert not list(initialized.adr_dir.glob("*-bad.md"))
+
+
 def test_new_with_body_from_stdin_and_tags(initialized):
     result = initialized.adr(
         "new",
@@ -240,7 +249,13 @@ def test_scalar_template_tags_become_list():
     from adrinaline.model import Status
 
     text = repo.render_new(
-        "---\ntags: solo\n---\n# {title}\n", "T", Status.PROPOSED, dt.date(2026, 1, 1), None, ["x"]
+        "---\ntags: solo\n---\n# {title}\n",
+        "T",
+        Status.PROPOSED,
+        dt.date(2026, 1, 1),
+        None,
+        ["x"],
+        [],
     )
     assert "tags: [solo, x]" in text
 

@@ -237,6 +237,7 @@ def render_new(
     today: dt.date,
     body: str | None,
     tags: list[str],
+    scope: list[str],
 ) -> str:
     try:
         meta, template_body = split(template.replace("{title}", title))
@@ -248,6 +249,8 @@ def render_new(
         old = meta.get("tags", [])
         old = [old] if isinstance(old, str) else old
         meta["tags"] = flow(sorted({*old, *tags}))
+    if scope:
+        meta["scope"] = flow(list(dict.fromkeys(scope)))
     if body is not None:
         template_body = f"# {title}\n\n{body.strip()}\n"
     return render(meta, template_body)
