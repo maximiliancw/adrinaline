@@ -62,3 +62,21 @@ def test_numbers_taken_on_other_branches_are_not_gaps(initialized):
     assert initialized.adr("new", "Four").code == 0
     assert initialized.path_of(4)
     assert initialized.adr("check", "--strict").code == 0
+
+
+def test_check_diff_outside_git(tmp_path):
+    from conftest import Workspace
+
+    w = Workspace(tmp_path.resolve())
+    w.adr("init")
+    result = w.adr("check", "--diff", "HEAD", "--json")
+    assert result.code == 3 and result.json()["error"]["code"] == "no-git"
+
+
+def test_check_diff_reports_untracked_new_file(initialized):
+    scoped_repo(initialized)
+    initialized.commit_all()
+    initialized.write("src/db/new.py", "z\n")
+    result = initialized.adr("check", "--diff", "HEAD", "--json")
+    paths = {f["path"] for f in result.json()["findings"] if f["code"] == "scoped-change"}
+    assert "src/db/new.py" in paths
