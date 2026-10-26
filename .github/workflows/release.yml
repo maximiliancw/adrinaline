@@ -28,6 +28,7 @@ jobs:
       - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           python-version: "3.14"
+          enable-cache: false  # never build a release from a restored cache
       - name: Next version
         id: next
         run: |
@@ -93,6 +94,8 @@ jobs:
           name: dist
           path: dist/
       - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          enable-cache: false
       - run: uv publish
 
   github-release:
