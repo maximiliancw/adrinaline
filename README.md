@@ -18,7 +18,7 @@ Requires Python 3.14+ and git.
 
 ```bash
 adr init                                   # docs/adr/.template.md + 0001-record-architecture-decisions.md
-adr new "Use PostgreSQL" --tag storage     # docs/adr/0002-use-postgresql.md (proposed)
+adr new "Use PostgreSQL" --tag storage --scope "src/db/**"  # docs/adr/0002-use-postgresql.md (proposed)
 adr accept 2
 adr new "Use PostgreSQL 17" --supersedes 2 --accepted
 adr list

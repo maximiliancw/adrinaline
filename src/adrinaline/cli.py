@@ -126,6 +126,9 @@ def cmd_new(ctx: Ctx) -> None:
                     current=old.status.value,
                     requested=Status.SUPERSEDED.value,
                 )
+    for glob in args.scope:
+        if glob.startswith("/") or ".." in Path(glob).parts:
+            raise AdrError("bad-scope", f"scope glob must be repository-relative: {glob}")
     body = None
     if args.body_file == "-":
         body = sys.stdin.read()
@@ -135,7 +138,9 @@ def cmd_new(ctx: Ctx) -> None:
         except (OSError, UnicodeDecodeError) as exc:
             raise AdrError("io", f"cannot read {args.body_file}: {exc}") from exc
     status = Status.ACCEPTED if args.accepted else Status.PROPOSED
-    text = repo.render_new(repo.template_text(loc), args.title, status, today(), body, args.tag)
+    text = repo.render_new(
+        repo.template_text(loc), args.title, status, today(), body, args.tag, args.scope
+    )
     number, skipped = repo.next_number(loc)
     path = repo.create_file(loc.dir, number, repo.slugify(args.title), text)
     for n, ref in sorted(skipped.items()):
@@ -408,6 +413,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("title")
     p.add_argument("--accepted", action="store_true", help="create as accepted")
     p.add_argument("--tag", action="append", default=[])
+    p.add_argument("--scope", action="append", default=[], help="repository-relative glob")
     p.add_argument("--body-file", metavar="PATH", help="body below the title ('-' = stdin)")
     p.add_argument("--edit", action="store_true", help="open $VISUAL/$EDITOR afterwards")
     for relation in ("supersedes", *LINKABLE):

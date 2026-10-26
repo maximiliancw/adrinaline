@@ -285,7 +285,7 @@ Global flags: `--json` (machine output), `--dir PATH` (overrides §5),
 | Command | Effect |
 |---|---|
 | `adr init [--force]` | Create the ADR dir, `.template.md` and `0001-record-architecture-decisions.md` (status `accepted`). Idempotent: existing files are left alone unless `--force`. |
-| `adr new TITLE [--accepted] [--tag T]... [--supersedes REF]... [--amends REF]... [--depends-on REF]... [--relates-to REF]... [--body-file PATH\|-] [--edit]` | Allocate the next number (§10), render the template, write the file, apply relations. `--body-file` replaces the template body below the title (`-` reads stdin). `--edit` opens `$VISUAL`/`$EDITOR` afterwards. Prints the new path. |
+| `adr new TITLE [--accepted] [--tag T]... [--scope GLOB]... [--supersedes REF]... [--amends REF]... [--depends-on REF]... [--relates-to REF]... [--body-file PATH\|-] [--edit]` | Allocate the next number (§10), render the template, write the file, apply relations. `--body-file` replaces the template body below the title (`-` reads stdin). `--edit` opens `$VISUAL`/`$EDITOR` afterwards. `--scope` sets a repository-relative glob in the `scope` list; absolute or `..` globs fail with `bad-scope` before any file is written. Prints the new path. |
 | `adr show REF [--raw]` | Show one ADR: metadata, resolved relation titles, body. `--raw` prints the file verbatim. |
 | `adr list [--status S]... [--tag T]...` | One line per ADR, ordered by number: number, status, date, title. |
 | `adr index` | Print a Markdown table (number with link, title, status, date) for pasting into docs. |
@@ -477,6 +477,9 @@ Each criterion is an automated test.
     0002, directly or transitively.
 19. `adr for src/db/conn.py` lists exactly the ADRs in force whose `scope`
     matches it; a superseded ADR with the same scope is not listed.
+    `adr new "X" --scope "src/db/**"` then `adr accept` makes
+    `adr for src/db/conn.py` list it; an absolute or `..` glob exits with
+    `bad-scope` and writes no file.
 20. After modifying a governed file, `adr check --diff HEAD` reports
     `scoped-change` naming the governing ADR and exits 0; with `--strict` it
     exits 1.
