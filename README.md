@@ -58,25 +58,11 @@ Add one line to `AGENTS.md` (or your agent's equivalent):
 Run `adr prime` at the start of every session and follow the ADRs it lists.
 ```
 
-`adr prime --budget 400` limits the briefing to about 400 words, picking the most important and most relevant decisions first (the top-scored ADR is always shown). `adr skill` prints a skill that teaches agents when and how to write ADRs; redirect it into your agent's skill directory (for example `adr skill > .claude/skills/adr/SKILL.md`). Every command accepts `--json` and returns a stable error envelope with exit code 3 on domain errors. Global flags (`--json`, `--dir`, `-q`, `--at`) work before or after the subcommand.
+`adr prime --budget 400` limits the briefing to about 400 words, picking the most important and most relevant decisions first (the top-scored ADR is always shown). `adr skill` prints a skill that teaches agents when and how to write ADRs; redirect it into your agent's skill directory (for example `adr skill > .claude/skills/adr/SKILL.md`).
 
 ## Commands
 
-| Command | Purpose |
-|---|---|
-| `adr init` | Create the ADR directory, template and ADR 0001 |
-| `adr new TITLE` | Create an ADR (`--supersedes`, `--amends`, `--depends-on`, `--relates-to`, `--body-file -`) |
-| `adr show REF` / `adr list` / `adr index` | Read ADRs |
-| `adr accept` / `reject` / `deprecate` / `supersede` | Change status |
-| `adr link` / `unlink` | Manage relations |
-| `adr graph [REF]` | Text, Mermaid, DOT or JSON graph; `--reverse` for impact, `--rank` for keystones (text or JSON only) |
-| `adr for PATH` | ADRs governing a file |
-| `adr check` | Validate everything |
-| `adr renumber REF --to N` | Fix numbering collisions after merges |
-| `adr log REF` | Git history of an ADR |
-| `adr prime` / `adr skill` | Agent briefing and skill |
-
-The full specification is in [docs/SPEC.md](docs/SPEC.md).
+`adr --help` lists every command; the full specification is in [docs/SPEC.md](docs/SPEC.md).
 
 ## Licence
 

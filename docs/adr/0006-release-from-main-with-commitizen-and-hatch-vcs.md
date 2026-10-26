@@ -20,7 +20,7 @@ Releases should be fully automatic for a solo maintainer, follow semantic versio
 
 Chosen: `hatchling` + `hatch-vcs`. Every push to `main` runs `cz bump --get-next`; if the commits warrant a bump, the job tags, builds, publishes to PyPI via trusted publishing and creates a GitHub Release whose notes are `cz changelog` for that tag. `major_version_zero` keeps breaking changes on minor bumps until 1.0 is released deliberately. Checks run only on pull requests; branch protection requires an up-to-date branch, so main is never re-checked.
 
-## Consequences
+### Consequences
 
 - CI never commits, needs no personal token, and `uv.lock` never changes on release.
 - There is no `CHANGELOG.md`; GitHub Releases hold the changelog.
