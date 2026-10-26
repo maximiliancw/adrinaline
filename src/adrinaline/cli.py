@@ -37,7 +37,7 @@ class Ctx:
     cwd: Path
 
     def load(self) -> repo.AdrSet:
-        return repo.load(self.loc)
+        return repo.load(self.loc, getattr(self.args, "at", None))
 
 
 def today() -> dt.date:
@@ -312,10 +312,16 @@ def build_parser() -> argparse.ArgumentParser:
             "-q", "--quiet", action="store_true", default=S if hidden else False, help="no output"
         )
     parser.add_argument("--version", action="version", version=f"adr {__version__}")
+    reads = argparse.ArgumentParser(add_help=False)
+    reads.add_argument("--at", metavar="REF", help="read ADRs as of a git revision")
     sub = parser.add_subparsers(dest="command", required=True, metavar="COMMAND")
 
-    def add(name: str, func: Callable[[Ctx], int | None], help_: str) -> argparse.ArgumentParser:
-        p = sub.add_parser(name, parents=[common], help=help_, description=help_)
+    def add(
+        name: str, func: Callable[[Ctx], int | None], help_: str, *, reads_: bool = False
+    ) -> argparse.ArgumentParser:
+        p = sub.add_parser(
+            name, parents=[common, reads] if reads_ else [common], help=help_, description=help_
+        )
         p.set_defaults(func=func)
         return p
 
@@ -332,15 +338,15 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument(f"--{relation}", action="append", default=[], metavar="REF")
     p.add_argument("--force", action="store_true", help="supersede ADRs that are not accepted")
 
-    p = add("show", cmd_show, "show one ADR")
+    p = add("show", cmd_show, "show one ADR", reads_=True)
     p.add_argument("ref")
     p.add_argument("--raw", action="store_true", help="print the file verbatim")
 
-    p = add("list", cmd_list, "list ADRs")
+    p = add("list", cmd_list, "list ADRs", reads_=True)
     p.add_argument("--status", action="append", choices=[s.value for s in Status])
     p.add_argument("--tag", action="append")
 
-    add("index", cmd_index, "print a Markdown index table")
+    add("index", cmd_index, "print a Markdown index table", reads_=True)
 
     for name, to in (
         ("accept", Status.ACCEPTED),
@@ -351,7 +357,7 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument("ref")
         p.add_argument("--force", action="store_true", help="allow any transition (repairs)")
 
-    p = add("check", cmd_check, "validate all ADRs")
+    p = add("check", cmd_check, "validate all ADRs", reads_=True)
     p.add_argument("--strict", action="store_true", help="fail on warnings too")
 
     p = add("supersede", cmd_supersede, "mark OLD as superseded by NEW")
@@ -368,7 +374,7 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument("relation", choices=LINKABLE)
         p.add_argument("dst", metavar="REF")
 
-    p = add("graph", cmd_graph, "render the ADR graph")
+    p = add("graph", cmd_graph, "render the ADR graph", reads_=True)
     p.add_argument("ref", nargs="?")
     p.add_argument("--relation", action="append", choices=FORWARD)
     p.add_argument("--depth", type=non_negative)

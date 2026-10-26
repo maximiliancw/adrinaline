@@ -136,7 +136,9 @@ def _read(path: Path) -> str:
         return ""  # parses as no-frontmatter
 
 
-def load(loc: Location) -> AdrSet:
+def load(loc: Location, at: str | None = None) -> AdrSet:
+    if at is not None:
+        return parse_all(git.read_dir_at(loc.root, at, loc.dir))
     if not loc.dir.is_dir():
         raise no_dir(loc)
     paths = sorted(p for p in loc.dir.iterdir() if p.is_file())

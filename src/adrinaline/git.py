@@ -82,7 +82,7 @@ def read_dir_at(root: Path | None, rev: str, directory: Path) -> list[tuple[Path
             continue
         size = int(header[2])
         if header[1] == b"blob":
-            items.append((root / name, data[pos : pos + size].decode("utf-8")))
+            items.append((root / name, data[pos : pos + size].decode("utf-8", errors="replace")))
         pos += size + 1
     return items
 
