@@ -80,7 +80,10 @@ def cmd_init(ctx: Ctx) -> None:
 
 def _edit(path: Path) -> None:
     editor = os.environ.get("VISUAL") or os.environ.get("EDITOR") or "vi"
-    subprocess.run([*shlex.split(editor), str(path)], check=False)
+    try:
+        subprocess.run([*shlex.split(editor), str(path)], check=False)
+    except OSError as exc:
+        raise AdrError("io", f"cannot run editor {editor!r}: {exc}") from exc
 
 
 def cmd_new(ctx: Ctx) -> None:
@@ -91,7 +94,10 @@ def cmd_new(ctx: Ctx) -> None:
     if args.body_file == "-":
         body = sys.stdin.read()
     elif args.body_file:
-        body = Path(args.body_file).read_text(encoding="utf-8")
+        try:
+            body = Path(args.body_file).read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            raise AdrError("io", f"cannot read {args.body_file}: {exc}") from exc
     status = Status.ACCEPTED if args.accepted else Status.PROPOSED
     text = repo.render_new(repo.template_text(loc), args.title, status, today(), body, args.tag)
     number, skipped = repo.next_number(loc)
@@ -166,14 +172,29 @@ def cmd_skill(ctx: Ctx) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    # Global flags work before and after the subcommand: the subparser copies use
+    # SUPPRESS so they never overwrite a value given at the top level.
     common = argparse.ArgumentParser(add_help=False)
-    common.add_argument("--json", action="store_true", help="print one JSON document on stdout")
-    common.add_argument("--dir", type=Path, help="ADR directory (overrides discovery)")
-    common.add_argument("-q", "--quiet", action="store_true", help="no output on success")
-
     parser = argparse.ArgumentParser(
         prog="adr", description="Git-native Architecture Decision Records.", epilog=AGENT_HINT
     )
+    S = argparse.SUPPRESS
+    for target, hidden in ((common, True), (parser, False)):
+        target.add_argument(
+            "--json",
+            action="store_true",
+            default=S if hidden else False,
+            help="print JSON on stdout",
+        )
+        target.add_argument(
+            "--dir",
+            type=Path,
+            default=S if hidden else None,
+            help="ADR directory (overrides discovery)",
+        )
+        target.add_argument(
+            "-q", "--quiet", action="store_true", default=S if hidden else False, help="no output"
+        )
     parser.add_argument("--version", action="version", version=f"adr {__version__}")
     sub = parser.add_subparsers(dest="command", required=True, metavar="COMMAND")
 

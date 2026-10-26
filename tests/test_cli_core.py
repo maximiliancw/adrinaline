@@ -166,3 +166,78 @@ def test_json_mode_prints_one_document(initialized):  # AC12 (core commands)
 
 def test_usage_error_exits_2(initialized):
     assert initialized.adr("frobnicate").code == 2
+
+
+def test_binary_file_in_adr_dir_is_tolerated(initialized):
+    (initialized.adr_dir / "diagram.png").write_bytes(b"\x89PNG\xff\xfe\x00")
+    (initialized.adr_dir / "0009-bin.md").write_bytes(b"\xff\xfe\x00")
+    listed = initialized.adr("list", "--json")
+    assert listed.code == 0
+    assert listed.json()
+    checked = initialized.adr("check", "--json")
+    codes = {f["code"] for f in checked.json()["findings"]}
+    assert {"bad-filename", "no-frontmatter"} <= codes
+
+
+def test_global_flags_before_and_after_subcommand(initialized):
+    assert initialized.adr("--json", "list").json() == initialized.adr("list", "--json").json()
+    elsewhere = initialized.root / "other"
+    elsewhere.mkdir()
+    for args in (
+        ("--dir", "../docs/adr", "list", "--json"),
+        ("list", "--json", "--dir", "../docs/adr"),
+    ):
+        assert initialized.adr(*args, cwd=elsewhere).json()[0]["number"] == 1
+
+
+def test_reject_with_dir(initialized):
+    initialized.adr("new", "Thing")
+    result = initialized.adr("--dir", "docs/adr", "reject", "thing", "--json")
+    assert result.code == 0
+    assert result.json()["status"] == "rejected"
+
+
+def test_bad_config_envelope(initialized):
+    initialized.write(".adrinaline.toml", "dir = [")
+    result = initialized.adr("list", "--json")
+    assert result.code == 3
+    assert result.json()["error"]["code"] == "bad-config"
+    initialized.write(".adrinaline.toml", "dir = 5\n")
+    assert initialized.adr("list", "--json").json()["error"]["code"] == "bad-config"
+
+
+def test_missing_body_file_is_io_error(initialized):
+    result = initialized.adr("new", "X", "--body-file", "missing.txt", "--json")
+    assert result.code == 3
+    assert result.json()["error"]["code"] == "io"
+
+
+def test_missing_editor_is_io_error(initialized):
+    result = initialized.adr("new", "X", "--edit", "--json", env={"VISUAL": "no-such-editor-xyz"})
+    assert result.code == 3
+    assert result.json()["error"]["code"] == "io"
+
+
+def test_broken_template_is_bad_template(initialized):
+    (initialized.adr_dir / ".template.md").write_text("no frontmatter", encoding="utf-8")
+    result = initialized.adr("new", "X", "--json")
+    assert result.code == 3
+    assert result.json()["error"]["code"] == "bad-template"
+
+
+def test_blank_ref_is_not_found(initialized):
+    result = initialized.adr("show", " ", "--json")
+    assert result.code == 3
+    assert result.json()["error"]["code"] == "not-found"
+
+
+def test_scalar_template_tags_become_list():
+    import datetime as dt
+
+    from adrinaline import repo
+    from adrinaline.model import Status
+
+    text = repo.render_new(
+        "---\ntags: solo\n---\n# {title}\n", "T", Status.PROPOSED, dt.date(2026, 1, 1), None, ["x"]
+    )
+    assert "tags: [solo, x]" in text

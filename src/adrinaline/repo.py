@@ -13,7 +13,7 @@ from importlib.resources import files
 from pathlib import Path
 
 from adrinaline import git
-from adrinaline.frontmatter import flow, render, split
+from adrinaline.frontmatter import FrontmatterError, flow, render, split
 from adrinaline.model import (
     FILENAME_RE,
     TRANSITIONS,
@@ -48,14 +48,20 @@ def _ancestors(start: Path, top: Path | None) -> Iterator[Path]:
             return
 
 
+def _toml(path: Path) -> dict:
+    try:
+        return tomllib.loads(path.read_text(encoding="utf-8"))
+    except (tomllib.TOMLDecodeError, UnicodeDecodeError, OSError) as exc:
+        raise AdrError("bad-config", f"{path}: {exc}", path=str(path)) from exc
+
+
 def _config_table(directory: Path) -> dict | None:
     dedicated = directory / ".adrinaline.toml"
     if dedicated.is_file():
-        return tomllib.loads(dedicated.read_text(encoding="utf-8"))
+        return _toml(dedicated)
     pyproject = directory / "pyproject.toml"
     if pyproject.is_file():
-        table = tomllib.loads(pyproject.read_text(encoding="utf-8"))
-        return table.get("tool", {}).get("adrinaline")
+        return _toml(pyproject).get("tool", {}).get("adrinaline")
     return None
 
 
@@ -71,6 +77,9 @@ def locate(cwd: Path, env: Mapping[str, str], explicit: Path | None = None) -> L
     adr_dir_file = next(
         (d / ".adr-dir" for d in _ancestors(cwd, root) if (d / ".adr-dir").is_file()), None
     )
+    for key in ("dir", "template"):
+        if key in table and not isinstance(table[key], str):
+            raise AdrError("bad-config", f"config key {key!r} must be a string")
     if explicit is not None:
         directory = cwd / explicit
     elif env.get("ADR_DIR"):
@@ -115,15 +124,26 @@ def parse_all(items: Iterable[tuple[Path, str]]) -> AdrSet:
     return AdrSet(adrs, problems, numbers)
 
 
+def _read(path: Path) -> str:
+    if path.name.startswith(".") or not FILENAME_RE.match(path.name):
+        return ""  # ignored or warned about by parse_all; never read
+    try:
+        return path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return ""  # parses as no-frontmatter
+
+
 def load(loc: Location) -> AdrSet:
     if not loc.dir.is_dir():
         raise no_dir(loc)
     paths = sorted(p for p in loc.dir.iterdir() if p.is_file())
-    return parse_all((p, p.read_text(encoding="utf-8")) for p in paths)
+    return parse_all((p, _read(p)) for p in paths)
 
 
 def resolve(adrs: list[Adr], ref: str) -> Adr:
     ref = ref.strip()
+    if not ref:
+        raise AdrError("not-found", "empty ADR reference", ref=ref)
     if ref.isascii() and ref.isdigit():
         hits = [adr for adr in adrs if adr.number == int(ref)]
     else:
@@ -210,11 +230,16 @@ def render_new(
     body: str | None,
     tags: list[str],
 ) -> str:
-    meta, template_body = split(template.replace("{title}", title))
+    try:
+        meta, template_body = split(template.replace("{title}", title))
+    except FrontmatterError as exc:
+        raise AdrError("bad-template", f"template: {exc}") from exc
     meta["status"] = status.value
     meta["date"] = today
     if tags:
-        meta["tags"] = flow(sorted({*meta.get("tags", []), *tags}))
+        old = meta.get("tags", [])
+        old = [old] if isinstance(old, str) else old
+        meta["tags"] = flow(sorted({*old, *tags}))
     if body is not None:
         template_body = f"# {title}\n\n{body.strip()}\n"
     return render(meta, template_body)

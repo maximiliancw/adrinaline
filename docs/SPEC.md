@@ -172,6 +172,8 @@ including its frontmatter defaults (for example `tags` or `decision-makers`);
   byte-stable where possible.
 - New ADR files are created with exclusive create (`O_EXCL`); if the number is
   taken by a concurrent process, the next free number is tried.
+- Block-style YAML lists are re-indented (and flow lists kept) on rewrite; this
+  formatting change is accepted.
 
 ## 5. Locating the ADR directory
 
