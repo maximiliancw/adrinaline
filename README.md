@@ -3,6 +3,7 @@
 [![CI](https://github.com/maximiliancw/adrinaline/actions/workflows/ci.yml/badge.svg)](https://github.com/maximiliancw/adrinaline/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/adrinaline)](https://pypi.org/project/adrinaline/)
 [![Python](https://img.shields.io/pypi/pyversions/adrinaline)](https://pypi.org/project/adrinaline/)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/maximiliancw/adrinaline/badge)](https://scorecard.dev/viewer/?uri=github.com/maximiliancw/adrinaline)
 
 Git-native Architecture Decision Records for humans and coding agents.
 
