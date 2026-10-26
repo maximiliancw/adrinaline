@@ -120,3 +120,98 @@ class AdrGraph:
                     sub.nodes.append(child)
                     queue.append((child, level + 1))
         return sub
+
+
+_FILL = {
+    "proposed": "fill:#fff4cc",
+    "accepted": "fill:#d9f2d9",
+    "rejected": "fill:#f2d9d9",
+    "deprecated": "fill:#e6e6e6",
+    "superseded": "fill:#e6e6e6,stroke-dasharray:4 2",
+    "missing": "fill:#ffffff,stroke-dasharray:2 2",
+}
+
+
+def all_nodes(graph: AdrGraph) -> list[int]:
+    return sorted({*graph.nodes, *(e.src for e in graph.edges), *(e.dst for e in graph.edges)})
+
+
+def render_text(graph: AdrGraph, sub: Subgraph | None) -> str:
+    if sub is None:
+        lines: list[str] = []
+        for number in sorted(graph.nodes):
+            lines.append(f"{graph.label(number)} [{graph.status(number)}]")
+            lines += [
+                f"  {e.relation} -> {graph.label(e.dst)}" for e in graph.edges if e.src == number
+            ]
+        return "\n".join(lines)
+    children: dict[int, list[tuple[str, int]]] = defaultdict(list)
+    for parent, child, relation in sub.steps:
+        children[parent].append((relation, child))
+    root = sub.nodes[0]
+    lines = [f"{graph.label(root)} [{graph.status(root)}]"]
+    seen = {root}
+
+    def walk(number: int, depth: int) -> None:
+        for relation, child in children[number]:
+            repeat = child in seen
+            suffix = " (see above)" if repeat else f" [{graph.status(child)}]"
+            lines.append(f"{'  ' * depth}{relation} -> {graph.label(child)}{suffix}")
+            if not repeat:
+                seen.add(child)
+                walk(child, depth + 1)
+
+    walk(root, 1)
+    return "\n".join(lines)
+
+
+def render_mermaid(graph: AdrGraph, nodes: list[int], edges: list[Edge]) -> str:
+    lines = ["flowchart LR"]
+    for n in nodes:
+        label = graph.label(n).replace('"', "#quot;")
+        lines.append(f'  A{n}["{label}"]:::{graph.status(n)}')
+    for e in edges:
+        arrow = "---" if e.relation == "relates-to" else "-->"
+        lines.append(f"  A{e.src} {arrow}|{e.relation}| A{e.dst}")
+    lines += [f"  classDef {status} {style}" for status, style in _FILL.items()]
+    return "\n".join(lines)
+
+
+def _quote(text: str) -> str:
+    return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def render_dot(graph: AdrGraph, nodes: list[int], edges: list[Edge]) -> str:
+    lines = ["digraph adr {", "  rankdir=LR;", '  node [shape=box, style="rounded,filled"];']
+    for n in nodes:
+        fill = _FILL[graph.status(n)].split(",")[0].removeprefix("fill:")
+        lines.append(f"  n{n} [label={_quote(graph.label(n))}, fillcolor={_quote(fill)}];")
+    for e in edges:
+        extra = ", dir=none" if e.relation == "relates-to" else ""
+        lines.append(f"  n{e.src} -> n{e.dst} [label={_quote(e.relation)}{extra}];")
+    lines.append("}")
+    return "\n".join(lines)
+
+
+def graph_data(
+    graph: AdrGraph,
+    nodes: list[int],
+    edges: list[Edge],
+    ranks: dict[int, float] | None = None,
+) -> dict:
+    node_rows = []
+    for n in nodes:
+        adr = graph.nodes.get(n)
+        row = {
+            "number": n,
+            "id": f"{n:04d}",
+            "title": adr.title if adr else None,
+            "status": graph.status(n),
+        }
+        if ranks is not None:
+            row["rank"] = ranks.get(n, 0.0)
+        node_rows.append(row)
+    return {
+        "nodes": node_rows,
+        "edges": [{"from": e.src, "to": e.dst, "relation": e.relation} for e in edges],
+    }

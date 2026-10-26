@@ -1,0 +1,15 @@
+flowchart LR
+  A1["0001 Record decisions"]:::accepted
+  A2["0002 Use MySQL"]:::superseded
+  A3["0003 Use PostgreSQL"]:::accepted
+  A4["0004 Add read replicas"]:::proposed
+  A3 -->|supersedes| A2
+  A3 -->|depends-on| A1
+  A4 -->|amends| A3
+  A4 ---|relates-to| A1
+  classDef proposed fill:#fff4cc
+  classDef accepted fill:#d9f2d9
+  classDef rejected fill:#f2d9d9
+  classDef deprecated fill:#e6e6e6
+  classDef superseded fill:#e6e6e6,stroke-dasharray:4 2
+  classDef missing fill:#ffffff,stroke-dasharray:2 2

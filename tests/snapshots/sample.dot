@@ -1,0 +1,12 @@
+digraph adr {
+  rankdir=LR;
+  node [shape=box, style="rounded,filled"];
+  n1 [label="0001 Record decisions", fillcolor="#d9f2d9"];
+  n2 [label="0002 Use MySQL", fillcolor="#e6e6e6"];
+  n3 [label="0003 Use PostgreSQL", fillcolor="#d9f2d9"];
+  n4 [label="0004 Add read replicas", fillcolor="#fff4cc"];
+  n3 -> n2 [label="supersedes"];
+  n3 -> n1 [label="depends-on"];
+  n4 -> n3 [label="amends"];
+  n4 -> n1 [label="relates-to", dir=none];
+}

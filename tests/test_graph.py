@@ -1,6 +1,19 @@
+import shutil
+import subprocess
 from pathlib import Path
 
-from adrinaline.graph import IMPACT, AdrGraph, Edge
+import pytest
+
+from adrinaline.graph import (
+    IMPACT,
+    AdrGraph,
+    Edge,
+    all_nodes,
+    graph_data,
+    render_dot,
+    render_mermaid,
+    render_text,
+)
 from adrinaline.repo import parse_all
 
 
@@ -76,3 +89,64 @@ def test_reachable_reverse_impact_and_depth():
     g = sample()
     assert g.reachable(1, IMPACT, reverse=True).nodes == [1, 3, 4]
     assert g.reachable(1, IMPACT, reverse=True, depth=1).nodes == [1, 3]
+
+
+SNAPSHOTS = Path(__file__).parent / "snapshots"
+
+
+def test_text_tree_marks_repeats():
+    g = sample()
+    assert render_text(g, g.reachable(3)) == (
+        "0003 Use PostgreSQL [accepted]\n"
+        "  supersedes -> 0002 Use MySQL [superseded]\n"
+        "  depends-on -> 0001 Record decisions [accepted]\n"
+        "    relates-to -> 0004 Add read replicas [proposed]\n"
+        "      amends -> 0003 Use PostgreSQL (see above)"
+    )
+
+
+def test_text_whole_set():
+    assert render_text(sample(), None).splitlines()[2:4] == [
+        "0003 Use PostgreSQL [accepted]",
+        "  supersedes -> 0002 Use MySQL",
+    ]
+
+
+def test_mermaid_and_dot_snapshots():
+    g = sample()
+    nodes = all_nodes(g)
+    assert render_mermaid(g, nodes, g.edges) + "\n" == (SNAPSHOTS / "sample.mmd").read_text()
+    assert render_dot(g, nodes, g.edges) + "\n" == (SNAPSHOTS / "sample.dot").read_text()
+
+
+@pytest.mark.skipif(shutil.which("dot") is None, reason="Graphviz not installed")
+def test_dot_is_valid_graphviz():
+    g = sample()
+    proc = subprocess.run(
+        ["dot", "-Tsvg"], input=render_dot(g, all_nodes(g), g.edges), capture_output=True, text=True
+    )
+    assert proc.returncode == 0, proc.stderr
+
+
+def test_quotes_in_titles_are_escaped():
+    g = AdrGraph(parse_all([adr(1, "q", 'Say "hi"')]).adrs)
+    assert 'A1["0001 Say #quot;hi#quot;"]' in render_mermaid(g, [1], [])
+    assert 'label="0001 Say \\"hi\\""' in render_dot(g, [1], [])
+
+
+def test_graph_data():
+    g = sample()
+    data = graph_data(g, [1, 9], [Edge(1, 9, "depends-on")], {1: 0.5})
+    assert data == {
+        "nodes": [
+            {
+                "number": 1,
+                "id": "0001",
+                "title": "Record decisions",
+                "status": "accepted",
+                "rank": 0.5,
+            },
+            {"number": 9, "id": "0009", "title": None, "status": "missing", "rank": 0.0},
+        ],
+        "edges": [{"from": 1, "to": 9, "relation": "depends-on"}],
+    }
