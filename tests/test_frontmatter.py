@@ -1,3 +1,5 @@
+import re
+
 import pytest
 
 from adrinaline.frontmatter import FrontmatterError, flow, render, split
@@ -26,7 +28,7 @@ def test_edit_keeps_comments_and_unknown_keys():
     meta, body = split(DOC)
     meta["status"] = "superseded"
     out = render(meta, body)
-    assert "status: superseded  # keep me\n" in out
+    assert re.search(r"^status: superseded\s+# keep me$", out, re.MULTILINE)
     assert "custom-key: [a, b]\n" in out
 
 
