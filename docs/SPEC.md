@@ -88,7 +88,7 @@ src/adrinaline/
   output.py        human vs JSON rendering, error envelope, exit codes
   cli.py           argparse wiring; one small function per command
                    (`cmd_<name>`, so `adr for` maps to `cmd_for`)
-  data/            template.md, 0001 ADR text, SKILL.md, prime text
+  data/            template.md, 0001 ADR text, SKILL.md
 tests/
 ```
 
