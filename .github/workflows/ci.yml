@@ -33,6 +33,7 @@ jobs:
       - run: uv run ruff format --check
       - run: uv run ty check
       - run: uv run adr check --strict
+      - run: uv audit --frozen --preview-features audit-command
 
   docs:
     runs-on: ubuntu-latest
