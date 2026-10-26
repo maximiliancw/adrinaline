@@ -1,11 +1,14 @@
-# adrinaline
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/maximiliancw/adrinaline/main/assets/brand/social/readme-banner-on-dark.png">
+    <img alt="adrinaline: Git-native Architecture Decision Records for humans and coding agents" src="https://raw.githubusercontent.com/maximiliancw/adrinaline/main/assets/brand/social/readme-banner-on-light.png" width="640">
+  </picture>
+</h1>
 
 [![CI](https://github.com/maximiliancw/adrinaline/actions/workflows/ci.yml/badge.svg)](https://github.com/maximiliancw/adrinaline/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/adrinaline)](https://pypi.org/project/adrinaline/)
 [![Python](https://img.shields.io/pypi/pyversions/adrinaline)](https://pypi.org/project/adrinaline/)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/maximiliancw/adrinaline/badge)](https://scorecard.dev/viewer/?uri=github.com/maximiliancw/adrinaline)
-
-Git-native Architecture Decision Records for humans and coding agents.
 
 ## Why
 
