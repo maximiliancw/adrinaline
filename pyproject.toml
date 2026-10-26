@@ -1,0 +1,36 @@
+[project]
+name = "adrinaline"
+version = "0.1.0"
+description = "Git-native Architecture Decision Records for humans and coding agents"
+license = "MIT"
+license-files = ["LICENSE"]
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "pydantic>=2.14.1",
+    "ruamel-yaml>=0.19.1",
+]
+
+[project.scripts]
+adr = "adrinaline.cli:run"
+adrinaline = "adrinaline.cli:run"
+
+[build-system]
+requires = ["uv_build>=0.13.5,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.17.2",
+    "ty>=0.0.92",
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
