@@ -1,4 +1,5 @@
 import datetime as dt
+import stat
 from pathlib import Path
 
 import pytest
@@ -82,3 +83,18 @@ def test_transition_rules():
     assert exc.value.code == "invalid-transition"
     repo.transition(adr, Status.ACCEPTED, today=dt.date(2026, 2, 1))
     assert adr.status is Status.ACCEPTED and adr.meta["date"] == dt.date(2026, 2, 1)
+
+
+def test_atomic_write_preserves_mode(tmp_path):
+    target = tmp_path / "a.md"
+    target.write_text("old")
+    target.chmod(0o644)
+    repo.atomic_write(target, "new")
+    assert target.read_text() == "new"
+    assert stat.S_IMODE(target.stat().st_mode) == 0o644
+
+
+def test_resolve_non_ascii_digit_falls_back_to_slug():
+    with pytest.raises(AdrError) as exc:
+        repo.resolve([], "²")
+    assert exc.value.code == "not-found"

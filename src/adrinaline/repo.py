@@ -3,6 +3,7 @@
 import datetime as dt
 import os
 import re
+import shutil
 import tempfile
 import tomllib
 import unicodedata
@@ -123,7 +124,7 @@ def load(loc: Location) -> AdrSet:
 
 def resolve(adrs: list[Adr], ref: str) -> Adr:
     ref = ref.strip()
-    if ref.isdigit():
+    if ref.isascii() and ref.isdigit():
         hits = [adr for adr in adrs if adr.number == int(ref)]
     else:
         hits = [adr for adr in adrs if ref.lower() in adr.slug]
@@ -142,6 +143,12 @@ def atomic_write(path: Path, text: str) -> None:
     try:
         with os.fdopen(fd, "w", encoding="utf-8", newline="") as handle:
             handle.write(text)
+        if path.exists():
+            shutil.copymode(path, tmp)
+        else:
+            umask = os.umask(0)
+            os.umask(umask)
+            os.chmod(tmp, 0o666 & ~umask)
         os.replace(tmp, path)
     except BaseException:
         Path(tmp).unlink(missing_ok=True)
