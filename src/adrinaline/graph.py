@@ -3,6 +3,7 @@
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from graphlib import CycleError, TopologicalSorter
+from pathlib import PurePosixPath
 
 from adrinaline.model import INVERSE, Adr, Status
 
@@ -120,6 +121,13 @@ class AdrGraph:
                     sub.nodes.append(child)
                     queue.append((child, level + 1))
         return sub
+
+    def governing(self, path: str, *, include_proposed: bool = False) -> list[Adr]:
+        candidates = self.in_force()
+        if include_proposed:
+            candidates += [a for _, a in sorted(self.nodes.items()) if a.status is Status.PROPOSED]
+        target = PurePosixPath(path)
+        return [adr for adr in candidates if any(target.full_match(g) for g in adr.scope)]
 
 
 _FILL = {

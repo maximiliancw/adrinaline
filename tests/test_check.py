@@ -78,3 +78,9 @@ def test_self_relation_is_not_also_a_cycle():
     s = parse_all([(Path("d/0001-a.md"), adr_text(depends_on=[1]))])
     found = {f.code for f in run_checks(s, template_exists=True)}
     assert "self-relation" in found and "cycle" not in found
+
+
+def test_gap_taken_elsewhere_is_not_reported():
+    s = parse_all([(Path("d/0001-a.md"), GOOD), (Path("d/0003-c.md"), GOOD)])
+    assert codes(run_checks(s, template_exists=True)) == {("number-gap", "warning")}
+    assert run_checks(s, template_exists=True, taken_elsewhere={2}) == []

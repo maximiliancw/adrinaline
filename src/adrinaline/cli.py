@@ -264,12 +264,46 @@ def _set_status(to: Status) -> Callable[[Ctx], None]:
 
 
 def cmd_check(ctx: Ctx) -> int:
-    findings = run_checks(ctx.load(), template_exists=ctx.loc.template.is_file())
+    root = ctx.loc.root
+    if ctx.args.diff and root is None:
+        raise AdrError("no-git", "--diff needs a git repository")
+    at = getattr(ctx.args, "at", None)
+    findings = run_checks(
+        ctx.load(),
+        template_exists=ctx.loc.template.is_file(),
+        tracked=git.tracked_files(root) if root else None,
+        changed=git.changed_files(root, ctx.args.diff) if root and ctx.args.diff else None,
+        taken_elsewhere=set(git.numbers_on_refs(root, ctx.loc.dir)) if root and not at else None,
+    )
     failed = any(f.severity == "error" for f in findings) or (ctx.args.strict and bool(findings))
-    rows = [asdict(f) | {"path": ctx.out.rel(Path(f.path)) if f.path else ""} for f in findings]
+    rows = [
+        asdict(f) | {"path": ctx.out.rel(Path(f.path)) if Path(f.path).is_absolute() else f.path}
+        for f in findings
+    ]
     text = "\n".join(f"{r['severity']}: {r['code']}: {r['message']}" for r in rows) or "ok"
     ctx.out.result({"ok": not failed, "findings": rows}, text)
     return EXIT_FINDINGS if failed else EXIT_OK
+
+
+def _repo_path(raw: str, cwd: Path, base: Path) -> str:
+    try:
+        return (cwd / raw).resolve().relative_to(base).as_posix()
+    except ValueError:
+        return Path(raw).as_posix()
+
+
+def cmd_for(ctx: Ctx) -> None:
+    graph = AdrGraph(ctx.load().adrs)
+    base = ctx.loc.root or ctx.cwd
+    data: dict[str, list[dict]] = {}
+    lines: list[str] = []
+    for raw in ctx.args.paths:
+        path = _repo_path(raw, ctx.cwd, base)
+        hits = graph.governing(path, include_proposed=ctx.args.all)
+        data[path] = [adr_dict(a, ctx.out) for a in hits]
+        lines.append(f"{path}:" if hits else f"{path}: no governing ADRs")
+        lines += [f"  {a.id} {a.title} [{a.status}]" for a in hits]
+    ctx.out.result(data, "\n".join(lines))
 
 
 def cmd_renumber(ctx: Ctx) -> None:
@@ -359,6 +393,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = add("check", cmd_check, "validate all ADRs", reads_=True)
     p.add_argument("--strict", action="store_true", help="fail on warnings too")
+    p.add_argument("--diff", metavar="REF", help="also report changed files governed by ADRs")
 
     p = add("supersede", cmd_supersede, "mark OLD as superseded by NEW")
     p.add_argument("old", metavar="OLD")
@@ -387,6 +422,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = add("log", cmd_log, "show the git history of an ADR")
     p.add_argument("ref")
+
+    p = add("for", cmd_for, "list the ADRs in force that govern each path", reads_=True)
+    p.add_argument("paths", nargs="+", metavar="PATH")
+    p.add_argument("--all", action="store_true", help="include proposed ADRs")
 
     add("skill", cmd_skill, "print the bundled agent skill (SKILL.md)")
     return parser

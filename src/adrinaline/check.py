@@ -1,6 +1,7 @@
 """Validation rules for `adr check`. Each rule returns Finding objects."""
 
 from collections import defaultdict
+from pathlib import PurePosixPath
 
 from adrinaline.graph import ACYCLIC, AdrGraph
 from adrinaline.model import STORED_RELATIONS, Finding, Status
@@ -24,11 +25,11 @@ def _duplicates(s: AdrSet) -> list[Finding]:
     ]
 
 
-def _gaps(s: AdrSet) -> list[Finding]:
+def _gaps(s: AdrSet, taken_elsewhere: set[int]) -> list[Finding]:
     return [
         Finding("number-gap", "warning", "", f"{n:04d} is missing")
         for n in range(1, max(s.numbers, default=0))
-        if n not in s.numbers
+        if n not in s.numbers and n not in taken_elsewhere
     ]
 
 
@@ -83,8 +84,53 @@ def _relations(s: AdrSet, graph: AdrGraph) -> list[Finding]:
     return found
 
 
-def run_checks(s: AdrSet, *, template_exists: bool) -> list[Finding]:
-    findings = [*s.problems, *_duplicates(s), *_gaps(s), *_relations(s, AdrGraph(s.adrs))]
+def _scopes(
+    s: AdrSet, graph: AdrGraph, tracked: list[str] | None, changed: list[str] | None
+) -> list[Finding]:
+    found: list[Finding] = []
+    if tracked is not None:
+        paths = [PurePosixPath(f) for f in tracked]
+        for adr in s.adrs:
+            for glob in adr.scope:
+                if not any(p.full_match(glob) for p in paths):
+                    found.append(
+                        Finding(
+                            "scope-matches-nothing",
+                            "warning",
+                            str(adr.path),
+                            f"{adr.id}: scope {glob!r} matches no file",
+                        )
+                    )
+    for path in changed or []:
+        if hits := graph.governing(path):
+            names = ", ".join(f"{a.id} {a.title}" for a in hits)
+            found.append(
+                Finding(
+                    "scoped-change",
+                    "warning",
+                    path,
+                    f"{path} is governed by {names}; review before merging",
+                )
+            )
+    return found
+
+
+def run_checks(
+    s: AdrSet,
+    *,
+    template_exists: bool,
+    tracked: list[str] | None = None,
+    changed: list[str] | None = None,
+    taken_elsewhere: set[int] | None = None,
+) -> list[Finding]:
+    graph = AdrGraph(s.adrs)
+    findings = [
+        *s.problems,
+        *_duplicates(s),
+        *_gaps(s, taken_elsewhere or set()),
+        *_relations(s, graph),
+        *_scopes(s, graph, tracked, changed),
+    ]
     if not template_exists:
         findings.append(
             Finding("no-template", "warning", "", "template is missing; `adr init` recreates it")
