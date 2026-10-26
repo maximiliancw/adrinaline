@@ -98,3 +98,10 @@ def test_resolve_non_ascii_digit_falls_back_to_slug():
     with pytest.raises(AdrError) as exc:
         repo.resolve([], "²")
     assert exc.value.code == "not-found"
+
+
+def test_non_table_tool_adrinaline_is_bad_config(ws):
+    ws.write("pyproject.toml", "[tool]\nadrinaline = 5\n")
+    r = ws.adr("list")
+    assert r.code == 3
+    assert "bad-config" in r.err or "table" in r.err

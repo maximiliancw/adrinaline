@@ -91,8 +91,11 @@ def cmd_init(ctx: Ctx) -> None:
 def _edit(path: Path) -> None:
     editor = os.environ.get("VISUAL") or os.environ.get("EDITOR") or "vi"
     try:
-        subprocess.run([*shlex.split(editor), str(path)], check=False)
-    except OSError as exc:
+        argv = shlex.split(editor)
+        if not argv:
+            raise ValueError("empty editor command")
+        subprocess.run([*argv, str(path)], check=False)
+    except (OSError, ValueError) as exc:
         raise AdrError("io", f"cannot run editor {editor!r}: {exc}") from exc
 
 

@@ -6,10 +6,20 @@ license = "MIT"
 license-files = ["LICENSE"]
 readme = "README.md"
 requires-python = ">=3.14"
+authors = [{ name = "Max Wolf" }]
+classifiers = [
+    "Programming Language :: Python :: 3.14",
+    "Environment :: Console",
+    "Topic :: Software Development :: Documentation",
+]
 dependencies = [
     "pydantic>=2.14.1",
     "ruamel-yaml>=0.19.1",
 ]
+
+[project.urls]
+Repository = "https://github.com/maximiliancw/adrinaline"
+Issues = "https://github.com/maximiliancw/adrinaline/issues"
 
 [project.scripts]
 adr = "adrinaline.cli:run"

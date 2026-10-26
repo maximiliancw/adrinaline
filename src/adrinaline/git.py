@@ -71,14 +71,19 @@ def read_dir_at(root: Path | None, rev: str, directory: Path) -> list[tuple[Path
     names = [n for n in (listing or "").splitlines() if n]
     if not names:
         raise AdrError("no-adr-dir", f"no ADR directory {rel} at {rev}", rev=rev)
-    proc = subprocess.run(
-        ["git", "cat-file", "--batch"],
-        cwd=root,
-        input="".join(f"{rev}:{name}\n" for name in names).encode(),
-        capture_output=True,
-        check=True,
-        env=_ENV,
-    )
+    try:
+        proc = subprocess.run(
+            ["git", "cat-file", "--batch"],
+            cwd=root,
+            input="".join(f"{rev}:{name}\n" for name in names).encode(),
+            capture_output=True,
+            check=True,
+            env=_ENV,
+        )
+    except FileNotFoundError as exc:
+        raise AdrError("no-git", "git executable not found") from exc
+    except subprocess.CalledProcessError as exc:
+        raise AdrError("bad-revision", f"cannot read {rev}: git cat-file failed", rev=rev) from exc
     data, items, pos = proc.stdout, [], 0
     for name in names:
         end = data.index(b"\n", pos)

@@ -64,7 +64,10 @@ def _config_table(directory: Path) -> dict | None:
         return _toml(dedicated)
     pyproject = directory / "pyproject.toml"
     if pyproject.is_file():
-        return _toml(pyproject).get("tool", {}).get("adrinaline")
+        table = _toml(pyproject).get("tool", {}).get("adrinaline")
+        if table is not None and not isinstance(table, dict):
+            raise AdrError("bad-config", f"{pyproject}: [tool.adrinaline] must be a table")
+        return table
     return None
 
 

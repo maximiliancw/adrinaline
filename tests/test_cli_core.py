@@ -1,6 +1,8 @@
 import datetime as dt
 import json
 
+import pytest
+
 TODAY = dt.date.today().isoformat()
 
 
@@ -241,3 +243,10 @@ def test_scalar_template_tags_become_list():
         "---\ntags: solo\n---\n# {title}\n", "T", Status.PROPOSED, dt.date(2026, 1, 1), None, ["x"]
     )
     assert "tags: [solo, x]" in text
+
+
+@pytest.mark.parametrize("editor", ['"unbalanced', "  "])
+def test_new_edit_bad_editor_is_io_error(initialized, editor):
+    r = initialized.adr("new", "T", "--edit", env={"VISUAL": editor, "EDITOR": editor})
+    assert r.code == 3
+    assert "io" in r.err or "editor" in r.err

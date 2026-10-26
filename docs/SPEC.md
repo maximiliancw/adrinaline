@@ -337,6 +337,7 @@ Each finding has a stable code, a severity, a file and a message.
 | `number-gap` | warning | A number between 1 and the maximum is missing |
 | `no-template` | warning | `.template.md` missing |
 | `bad-scope` | error | `scope` is not a list of relative glob strings |
+| `unknown-relation-key` | warning | Frontmatter uses a snake_case relation key (`superseded_by`, `depends_on`, `relates_to`, `amended_by`, `dependency_of`); the hyphenated key is meant |
 | `scope-matches-nothing` | warning | A `scope` glob matches no file in `git ls-files` |
 | `scoped-change` | warning | With `--diff` only: a changed file is governed by an ADR in force |
 

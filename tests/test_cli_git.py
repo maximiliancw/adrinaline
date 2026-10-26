@@ -1,3 +1,6 @@
+import pytest
+
+
 def test_new_skips_numbers_taken_on_other_branches(initialized):  # AC5
     initialized.adr("new", "Main two")
     initialized.commit_all()
@@ -110,3 +113,27 @@ def test_check_at_uses_files_at_rev(initialized):
     codes = lambda r: [f["code"] for f in r["findings"]]  # noqa: E731
     assert "scope-matches-nothing" not in codes(plain)
     assert "scope-matches-nothing" in codes(at)
+
+
+def test_read_dir_at_git_failures(monkeypatch, tmp_path):
+    import subprocess
+
+    from adrinaline import git
+    from adrinaline.model import AdrError
+
+    monkeypatch.setattr(
+        git, "run", lambda args, root: "docs/adr/0001-a.md" if "ls-tree" in args else "x"
+    )
+    monkeypatch.setattr(git, "_rel", lambda root, d: "docs/adr")
+    for exc, code in [
+        (FileNotFoundError(), "no-git"),
+        (subprocess.CalledProcessError(1, "git"), "bad-revision"),
+    ]:
+
+        def boom(*a, _e=exc, **k):
+            raise _e
+
+        monkeypatch.setattr(subprocess, "run", boom)
+        with pytest.raises(AdrError) as ei:
+            git.read_dir_at(tmp_path, "HEAD", tmp_path / "docs/adr")
+        assert ei.value.code == code

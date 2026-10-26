@@ -7,6 +7,8 @@ from adrinaline.graph import ACYCLIC, AdrGraph
 from adrinaline.model import STORED_RELATIONS, Finding, Status
 from adrinaline.repo import AdrSet
 
+SNAKE_KEYS = {"superseded_by", "depends_on", "relates_to", "amended_by", "dependency_of"}
+
 
 def _duplicates(s: AdrSet) -> list[Finding]:
     groups = defaultdict(list)
@@ -84,6 +86,20 @@ def _relations(s: AdrSet, graph: AdrGraph) -> list[Finding]:
     return found
 
 
+def _unknown_keys(s: AdrSet) -> list[Finding]:
+    return [
+        Finding(
+            "unknown-relation-key",
+            "warning",
+            str(adr.path),
+            f"`{key}` is ignored; use `{key.replace('_', '-')}`",
+        )
+        for adr in s.adrs
+        for key in adr.meta
+        if key in SNAKE_KEYS
+    ]
+
+
 def _scopes(
     s: AdrSet, graph: AdrGraph, tracked: list[str] | None, changed: list[str] | None
 ) -> list[Finding]:
@@ -129,6 +145,7 @@ def run_checks(
         *_duplicates(s),
         *_gaps(s, taken_elsewhere or set()),
         *_relations(s, graph),
+        *_unknown_keys(s),
         *_scopes(s, graph, tracked, changed),
     ]
     if not template_exists:

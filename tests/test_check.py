@@ -84,3 +84,11 @@ def test_gap_taken_elsewhere_is_not_reported():
     s = parse_all([(Path("d/0001-a.md"), GOOD), (Path("d/0003-c.md"), GOOD)])
     assert codes(run_checks(s, template_exists=True)) == {("number-gap", "warning")}
     assert run_checks(s, template_exists=True, taken_elsewhere={2}) == []
+
+
+def test_snake_case_relation_key_warns():
+    text = "---\nstatus: accepted\ndate: 2026-01-15\ndepends_on: [1]\n---\n# A\n"
+    s = parse_all([(Path("d/0001-a.md"), text)])
+    found = run_checks(s, template_exists=True)
+    assert [(f.code, f.severity) for f in found] == [("unknown-relation-key", "warning")]
+    assert "depends-on" in found[0].message
