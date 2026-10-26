@@ -14,5 +14,5 @@ def test_wheel_contains_data_files(tmp_path):
     )
     wheel = next(tmp_path.glob("adrinaline-*.whl"))
     names = set(zipfile.ZipFile(wheel).namelist())
-    for data in ("template.md", "0001.md", "SKILL.md"):
+    for data in ("template.md", "0001.md", "SKILL.md", "references/frontmatter.md"):
         assert f"adrinaline/data/{data}" in names

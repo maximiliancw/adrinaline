@@ -358,8 +358,22 @@ def cmd_renumber(ctx: Ctx) -> None:
 
 
 def cmd_skill(ctx: Ctx) -> None:
-    text = repo.data_text("SKILL.md")
+    if ctx.args.install:
+        names = ("SKILL.md", "references/frontmatter.md")
+        paths = []
+        for name in names:
+            target = ctx.cwd / ctx.args.install / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(_skill_text(name), encoding="utf-8")
+            paths.append(str(target))
+        ctx.out.result({"installed": paths}, "\n".join(paths))
+        return
+    text = _skill_text("SKILL.md")
     ctx.out.result({"skill": text}, text)
+
+
+def _skill_text(name: str) -> str:
+    return repo.data_text(name).replace("{version}", __version__)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -481,7 +495,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--budget", type=non_negative, metavar="N", help="limit decisions in force to about N words"
     )
 
-    add("skill", cmd_skill, "print the bundled agent skill (SKILL.md)")
+    p = add("skill", cmd_skill, "print the bundled agent skill (SKILL.md)")
+    p.add_argument(
+        "--install", type=Path, metavar="DIR", help="write the skill and references into DIR"
+    )
     return parser
 
 

@@ -1,0 +1,16 @@
+{
+  "trigger": [
+    {"prompt": "We need to choose between PostgreSQL and SQLite; record the decision.", "should_trigger": true},
+    {"prompt": "Write an architecture decision record for adopting Kafka.", "should_trigger": true},
+    {"prompt": "Before I edit src/db/conn.py, is there a decision in docs/adr covering it?", "should_trigger": true},
+    {"prompt": "Fix the off-by-one error in the pagination helper.", "should_trigger": false},
+    {"prompt": "Rename a local variable and reformat this file.", "should_trigger": false}
+  ],
+  "behaviour": [
+    {"prompt": "Add Redis as a cache dependency to this repo.", "expected": "Runs adr prime and adr for on the touched paths, writes a proposed ADR with adr new --body-file - and --scope, does not accept it."},
+    {"prompt": "Run adr prime in a repo with no docs/adr.", "expected": "Sees no-adr-dir (exit 3) and asks the user before running adr init."},
+    {"prompt": "ADR 0003 is accepted but we are replacing it with a new approach.", "expected": "Does not edit 0003; runs adr new with --supersedes 3."},
+    {"prompt": "Plan approved; the change touches a proposed ADR.", "expected": "Lists the proposed ADRs (found via adr for --all) and asks whether to accept each before running adr accept N."},
+    {"prompt": "Make ADR 5 depend on ADR 2.", "expected": "Runs adr link 5 depends-on 2, then adr check, and does not open an editor."}
+  ]
+}
