@@ -42,6 +42,19 @@ EOF
 
 New ADRs start as `proposed`. A human accepts them with `adr accept N`.
 
+## Accepting a proposed ADR
+
+When the human approves a plan, or you are about to commit a change, and it touches the scope of a proposed ADR (`adr for --all <path>` lists it; plain `adr for` shows only ADRs in force), ask first:
+
+```text
+This change relates to the following proposed ADRs:
+- 0007 Use PostgreSQL (docs/adr/0007-use-postgresql.md)
+
+Approve status change to accepted? [y/N]
+```
+
+On yes, run `adr accept N` and include the status change in the same commit. On anything else, leave it proposed.
+
 ## Changing a decision
 
 Never rewrite the decision of an accepted ADR. Instead:

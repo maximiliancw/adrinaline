@@ -13,6 +13,7 @@ RULES = """\
 - Before changing code, run `adr for <path>` and follow the ADRs it lists.
 - Write an ADR for decisions that are expensive to reverse: architecture, dependencies, data formats, public interfaces, security. Not for routine choices.
 - New ADR: `adr new "Title" --body-file -` with Context and Problem Statement, Considered Options, Decision Outcome and Consequences on stdin.
+- New ADRs start as `proposed`; only a human accepts them, so ask before running `adr accept N`.
 - Never rewrite an accepted decision: `adr new "…" --supersedes N` replaces it, `adr new "…" --amends N` changes part of it.
 - Look things up: `adr show N`, `adr list --status accepted`, `adr graph N`, `adr graph N --reverse`.
 - Run `adr check` before you finish. Every command accepts `--json`."""
