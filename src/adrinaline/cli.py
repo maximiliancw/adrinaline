@@ -255,6 +255,16 @@ def cmd_check(ctx: Ctx) -> int:
     return EXIT_FINDINGS if failed else EXIT_OK
 
 
+def cmd_renumber(ctx: Ctx) -> None:
+    s = ctx.load()
+    adr = repo.resolve(s.adrs, ctx.args.ref)
+    old = ctx.out.rel(adr.path)
+    new_path, changed = repo.renumber(s, adr, ctx.args.to)
+    updated = [ctx.out.rel(a.path) for a in changed]
+    lines = [f"renamed {old} -> {ctx.out.rel(new_path)}", *(f"updated {p}" for p in updated)]
+    ctx.out.result({"from": old, "to": ctx.out.rel(new_path), "updated": updated}, "\n".join(lines))
+
+
 def cmd_skill(ctx: Ctx) -> None:
     text = repo.data_text("SKILL.md")
     ctx.out.result({"skill": text}, text)
@@ -347,6 +357,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--depth", type=int)
     p.add_argument("--reverse", action="store_true", help="follow inverse edges (impact)")
     p.add_argument("--format", choices=("text", "mermaid", "dot", "json"), default="text")
+
+    p = add("renumber", cmd_renumber, "give an ADR a new number and update references")
+    p.add_argument("ref")
+    p.add_argument("--to", type=int, required=True, metavar="N")
 
     add("skill", cmd_skill, "print the bundled agent skill (SKILL.md)")
     return parser

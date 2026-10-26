@@ -95,3 +95,31 @@ def test_graph_reverse_is_the_impact_set(initialized):  # AC18
 
 def test_graph_json_is_one_document(initialized):
     json.loads(initialized.adr("graph", "1", "--json").out)
+
+
+def test_renumber_fixes_duplicates(initialized):  # AC11
+    initialized.write_adr(2, "two")
+    initialized.write_adr(3, "three", body="See [b](0004-dup-b.md).\n")
+    initialized.write_adr(4, "dup-a")
+    initialized.write_adr(4, "dup-b")
+    result = initialized.adr("check", "--json")
+    assert result.code == 1 and "duplicate-number" in {f["code"] for f in result.json()["findings"]}
+    assert initialized.adr("renumber", "dup-b", "--to", "5").code == 0
+    assert (initialized.adr_dir / "0005-dup-b.md").is_file()
+    assert not (initialized.adr_dir / "0004-dup-b.md").exists()
+    assert "[b](0005-dup-b.md)" in initialized.path_of(3).read_text()
+    assert initialized.adr("check").code == 0
+
+
+def test_renumber_rewrites_relations(initialized):
+    initialized.write_adr(2, "two")
+    initialized.write_adr(3, "three", depends_on=[2])
+    assert initialized.adr("renumber", "2", "--to", "7").code == 0
+    assert "depends-on: [7]" in initialized.path_of(3).read_text()
+
+
+def test_renumber_refuses_taken_number(initialized):
+    initialized.write_adr(2, "two")
+    result = initialized.adr("renumber", "2", "--to", "1", "--json")
+    assert result.code == 3 and result.json()["error"]["code"] == "exists"
+    assert (initialized.adr_dir / "0002-two.md").is_file()

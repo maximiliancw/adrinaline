@@ -18,6 +18,7 @@ from adrinaline.graph import ACYCLIC, AdrGraph, Edge
 from adrinaline.model import (
     FILENAME_RE,
     LINKABLE,
+    STORED_RELATIONS,
     TRANSITIONS,
     Adr,
     AdrError,
@@ -322,3 +323,30 @@ def unlink(src: Adr, relation: str, dst: Adr) -> list[Adr]:
             save(holder)
             changed.append(holder)
     return changed
+
+
+def renumber(s: AdrSet, adr: Adr, to: int) -> tuple[Path, list[Adr]]:
+    if to in s.numbers or to < 1:
+        raise AdrError("exists", f"{to:04d} is already taken or invalid", number=to)
+    old_name = adr.path.name
+    new_path = adr.path.with_name(f"{to:04d}-{adr.slug}.md")
+    unique = sum(1 for a in s.adrs if a.number == adr.number) == 1
+    changed: list[Adr] = []
+    for other in s.adrs:
+        touched = False
+        if unique and other is not adr:
+            for name in STORED_RELATIONS:
+                if adr.number in other.relations[name]:
+                    set_relation(
+                        other, name, [to if n == adr.number else n for n in other.relations[name]]
+                    )
+                    touched = True
+        if old_name in other.body:
+            other.body = other.body.replace(old_name, new_path.name)
+            touched = True
+        if touched and other is not adr:
+            save(other)
+            changed.append(other)
+    atomic_write(new_path, render(adr.meta, adr.body))
+    adr.path.unlink()
+    return new_path, changed
