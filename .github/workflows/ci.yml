@@ -1,8 +1,8 @@
 name: ci
 
+# Checks run on PRs only; branch protection requires an up-to-date branch,
+# so the commit that lands on main is the one that was tested.
 on:
-  push:
-    branches: [main]
   pull_request:
 
 jobs:
@@ -13,11 +13,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@v10
         with:
           python-version: "3.14"
       - run: uv sync --locked
+      - run: uv run cz check --rev-range origin/${{ github.base_ref }}..HEAD
       - run: uv run ruff check
       - run: uv run ruff format --check
       - run: uv run ty check
       - run: uv run pytest -q
+      - run: uv run adr check --strict

@@ -1,26 +1,47 @@
 name: release
 
+# Every push to main releases if its commits warrant a bump (feat, fix, breaking).
+# The version lives only in the git tag (hatch-vcs); nothing is committed back.
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
+
+concurrency: release
 
 jobs:
-  pypi:
+  release:
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
+      contents: write
       id-token: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@v10
         with:
           python-version: "3.14"
-      - name: Tag matches version
-        run: test "v$(uv version --short)" = "$GITHUB_REF_NAME"
-      - run: uv sync --locked
-      - run: uv run ruff check
-      - run: uv run ruff format --check
-      - run: uv run ty check
-      - run: uv run pytest -q
-      - run: uv build
-      - run: uv publish
+      - name: Next version
+        id: next
+        run: |
+          set +e
+          next=$(uv run cz bump --get-next --yes)
+          code=$?
+          set -e
+          if [ "$code" = 21 ]; then exit 0; fi  # nothing to release
+          [ "$code" = 0 ] || exit "$code"
+          echo "tag=v$next" >> "$GITHUB_OUTPUT"
+      - if: steps.next.outputs.tag
+        run: git tag "${{ steps.next.outputs.tag }}"
+      - if: steps.next.outputs.tag
+        run: uv build
+      - if: steps.next.outputs.tag
+        run: uv publish
+      - if: steps.next.outputs.tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.next.outputs.tag }}
+        run: |
+          git push origin "$TAG"
+          uv run cz changelog "$TAG" --dry-run | gh release create "$TAG" --title "$TAG" --notes-file -
