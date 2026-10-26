@@ -34,7 +34,7 @@ source = "vcs"
 
 [dependency-groups]
 dev = [
-    "commitizen>=4.19.3",
+    { include-group = "release" },
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
     "pytest-xdist>=3.8.0",
@@ -42,6 +42,7 @@ dev = [
     "ty>=0.0.92",
     "zizmor==1.31.1",
 ]
+release = ["commitizen>=4.19.3"]
 docs = [
     "mkdocstrings-python>=2.0.10",
     "zensical>=0.0.73",
@@ -62,6 +63,7 @@ major_version_zero = true
 
 [tool.uv]
 required-version = "==0.13.5"  # setup-uv installs this in CI; uv audit is still experimental
+preview-features = ["audit-command"]
 
 [tool.pytest]
 testpaths = ["tests"]

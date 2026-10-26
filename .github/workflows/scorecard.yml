@@ -3,6 +3,7 @@ name: scorecard
 on:
   push:
     branches: [main]
+  branch_protection_rule:
   schedule:
     - cron: "41 6 * * 1"
   workflow_dispatch:

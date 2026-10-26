@@ -8,6 +8,9 @@ on:
 permissions:
   contents: read
 
+env:
+  UV_LOCKED: 1
+
 # A new push to a PR cancels its outdated run.
 concurrency:
   group: ci-${{ github.event.pull_request.number }}
@@ -22,9 +25,6 @@ jobs:
           fetch-depth: 0  # cz check reads the PR's commits
           persist-credentials: false
       - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-        with:
-          python-version: "3.14"
-      - run: uv sync --locked
       - run: uv run zizmor --min-severity=low .github/workflows
       - run: uv run cz check --rev-range "origin/$BASE_REF..HEAD"
         env:
@@ -33,7 +33,7 @@ jobs:
       - run: uv run ruff format --check
       - run: uv run ty check
       - run: uv run adr check --strict
-      - run: uv audit --frozen --preview-features audit-command
+      - run: uv audit
 
   docs:
     runs-on: ubuntu-latest
@@ -42,9 +42,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-        with:
-          python-version: "3.14"
-      - run: uv run --locked --group docs zensical build --clean --strict
+      - run: uv run --group docs zensical build --clean --strict
 
   test:
     strategy:
@@ -57,8 +55,6 @@ jobs:
           fetch-depth: 0  # hatch-vcs and the git tests need tags and history
           persist-credentials: false
       - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-        with:
-          python-version: "3.14"
-      - run: uv run --locked pytest -q --cov
+      - run: uv run pytest -q --cov
       - if: matrix.os == 'ubuntu-latest'
         run: uv run coverage report --format=markdown >> "$GITHUB_STEP_SUMMARY"
