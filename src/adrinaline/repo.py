@@ -253,7 +253,10 @@ def numbers_in(directory: Path) -> set[int]:
 
 
 def next_number(loc: Location) -> tuple[int, dict[int, str]]:
-    return max(numbers_in(loc.dir), default=0) + 1, {}
+    top = max(numbers_in(loc.dir), default=0)
+    remote = git.numbers_on_refs(loc.root, loc.dir) if loc.root else {}
+    skipped = {n: ref for n, ref in remote.items() if n > top}
+    return max([top, *skipped]) + 1, skipped
 
 
 def create_file(directory: Path, number: int, slug: str, text: str) -> Path:

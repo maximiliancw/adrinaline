@@ -200,6 +200,13 @@ def cmd_unlink(ctx: Ctx) -> None:
     ctx.out.result({"changed": [ctx.out.rel(a.path) for a in changed]}, text)
 
 
+def cmd_log(ctx: Ctx) -> None:
+    adr = repo.resolve(ctx.load().adrs, ctx.args.ref)
+    rows = git.log(ctx.loc.root, adr.path)
+    text = "\n".join(f"{r['date']}  {r['commit'][:8]}  {r['author']}  {r['subject']}" for r in rows)
+    ctx.out.result(rows, text or "no commits yet")
+
+
 def cmd_graph(ctx: Ctx) -> None:
     args = ctx.args
     graph = AdrGraph(ctx.load().adrs)
@@ -371,6 +378,9 @@ def build_parser() -> argparse.ArgumentParser:
     p = add("renumber", cmd_renumber, "give an ADR a new number and update references")
     p.add_argument("ref")
     p.add_argument("--to", type=int, required=True, metavar="N")
+
+    p = add("log", cmd_log, "show the git history of an ADR")
+    p.add_argument("ref")
 
     add("skill", cmd_skill, "print the bundled agent skill (SKILL.md)")
     return parser
