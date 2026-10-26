@@ -45,6 +45,35 @@ class AdrGraph:
         ]
         self.edges = list(dict.fromkeys(edges))
 
+    def rank(
+        self, damping: float = 0.85, tolerance: float = 1e-9, max_iterations: int = 100
+    ) -> dict[int, float]:
+        nodes = sorted(self.nodes)
+        if not nodes:
+            return {}
+        size = len(nodes)
+        targets: dict[int, list[int]] = {n: [] for n in nodes}
+        for edge in self.edges:
+            if edge.src not in targets or edge.dst not in targets:
+                continue
+            if edge.relation in IMPACT:
+                targets[edge.src].append(edge.dst)
+            elif edge.relation == "relates-to":
+                targets[edge.src].append(edge.dst)
+                targets[edge.dst].append(edge.src)
+        ranks = dict.fromkeys(nodes, 1 / size)
+        for _ in range(max_iterations):
+            dangling = sum(ranks[n] for n in nodes if not targets[n])
+            fresh = dict.fromkeys(nodes, (1 - damping) / size + damping * dangling / size)
+            for n in nodes:
+                for target in targets[n]:
+                    fresh[target] += damping * ranks[n] / len(targets[n])
+            change = sum(abs(fresh[n] - ranks[n]) for n in nodes)
+            ranks = fresh
+            if change < tolerance:
+                break
+        return ranks
+
     def label(self, number: int) -> str:
         adr = self.nodes.get(number)
         return f"{number:04d} {adr.title}" if adr else f"{number:04d} (missing)"

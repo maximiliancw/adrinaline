@@ -210,6 +210,16 @@ def cmd_log(ctx: Ctx) -> None:
 def cmd_graph(ctx: Ctx) -> None:
     args = ctx.args
     graph = AdrGraph(ctx.load().adrs)
+    if args.rank:
+        ranks = graph.rank()
+        ordered = sorted(ranks, key=lambda n: (-ranks[n], n))
+        if args.json or args.format == "json":
+            ctx.out.json_mode = True
+            ctx.out.result(graph_data(graph, ordered, graph.edges, ranks), "")
+        else:
+            lines = [f"{ranks[n]:.3f}  {graph.label(n)} [{graph.status(n)}]" for n in ordered]
+            ctx.out.result(None, "\n".join(lines))
+        return
     relations = tuple(args.relation) if args.relation else (IMPACT if args.reverse else FORWARD)
     sub = None
     if args.ref is not None:
@@ -421,6 +431,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--depth", type=non_negative)
     p.add_argument("--reverse", action="store_true", help="follow inverse edges (impact)")
     p.add_argument("--format", choices=("text", "mermaid", "dot", "json"), default="text")
+    p.add_argument("--rank", action="store_true", help="order ADRs by importance (PageRank)")
 
     p = add("renumber", cmd_renumber, "give an ADR a new number and update references")
     p.add_argument("ref")
