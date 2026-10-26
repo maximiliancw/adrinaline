@@ -31,5 +31,7 @@ jobs:
       - run: uv run ruff check
       - run: uv run ruff format --check
       - run: uv run ty check
-      - run: uv run pytest -q
+      - run: uv run pytest -q --cov
+      - if: matrix.os == 'ubuntu-latest'
+        run: uv run coverage report --format=markdown >> "$GITHUB_STEP_SUMMARY"
       - run: uv run adr check --strict
