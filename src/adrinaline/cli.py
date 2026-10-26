@@ -10,7 +10,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from adrinaline import __version__, git, repo
+from adrinaline import __version__, git, prime, repo
 from adrinaline.check import run_checks
 from adrinaline.frontmatter import render, split
 from adrinaline.graph import (
@@ -316,6 +316,27 @@ def cmd_for(ctx: Ctx) -> None:
     ctx.out.result(data, "\n".join(lines))
 
 
+def cmd_prime(ctx: Ctx) -> None:
+    graph = AdrGraph(ctx.load().adrs)
+    root = ctx.loc.root
+    at = getattr(ctx.args, "at", None)
+    changed = git.working_changes(root) if root and at is None else []
+    b = prime.briefing(graph, ctx.out.rel(ctx.loc.dir), changed, ctx.args.budget)
+
+    def rows(adrs: list[Adr]) -> list[dict]:
+        return [adr_dict(a, ctx.out, relations=graph.related(a.number)) for a in adrs]
+
+    data = {
+        "dir": ctx.out.rel(ctx.loc.dir),
+        "counts": b.counts,
+        "in_force": rows(b.shown),
+        "omitted": b.omitted,
+        "proposed": rows(b.proposed),
+        "rules": prime.RULES,
+    }
+    ctx.out.result(data, b.markdown)
+
+
 def cmd_renumber(ctx: Ctx) -> None:
     s = ctx.load()
     adr = repo.resolve(s.adrs, ctx.args.ref)
@@ -443,6 +464,11 @@ def build_parser() -> argparse.ArgumentParser:
     p = add("for", cmd_for, "list the ADRs in force that govern each path", reads_=True)
     p.add_argument("paths", nargs="+", metavar="PATH")
     p.add_argument("--all", action="store_true", help="include proposed ADRs")
+
+    p = add("prime", cmd_prime, "print the agent briefing", reads_=True)
+    p.add_argument(
+        "--budget", type=int, metavar="N", help="limit decisions in force to about N words"
+    )
 
     add("skill", cmd_skill, "print the bundled agent skill (SKILL.md)")
     return parser

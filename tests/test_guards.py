@@ -21,6 +21,8 @@ READS = [
     ["log", "1"],
     ["list", "--at", "HEAD"],
     ["skill"],
+    ["prime"],
+    ["prime", "--budget", "50"],
 ]
 
 
