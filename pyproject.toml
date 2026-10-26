@@ -36,6 +36,8 @@ source = "vcs"
 dev = [
     "commitizen>=4.19.3",
     "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "pytest-xdist>=3.8.0",
     "ruff>=0.17.2",
     "ty>=0.0.92",
     "zizmor==1.31.1",
@@ -58,5 +60,18 @@ version_provider = "scm"
 tag_format = "v$version"
 major_version_zero = true
 
-[tool.pytest.ini_options]
+[tool.pytest]
 testpaths = ["tests"]
+strict = true
+addopts = ["-ra", "-n", "auto"]
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+source = ["adrinaline"]
+branch = true
+patch = ["subprocess"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 97
