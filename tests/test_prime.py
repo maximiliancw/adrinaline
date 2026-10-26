@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from adrinaline import prime
 from adrinaline.graph import AdrGraph
 from adrinaline.repo import parse_all
@@ -21,8 +23,9 @@ def test_scope_hit_wins_a_tight_budget():
 
 def test_same_dates_and_tiny_budget():
     g = graph_of((1, "accepted", "2026-01-15", []), (2, "accepted", "2026-01-15", []))
-    assert set(prime.scores(g, g.in_force(), []).values()) == {0.7}
-    assert prime.select(g, g.in_force(), [], budget=1) == ([], 2)
+    assert list(prime.scores(g, g.in_force(), []).values()) == [pytest.approx(0.7)] * 2
+    chosen, omitted = prime.select(g, g.in_force(), [], budget=1)
+    assert [a.number for a in chosen] == [1] and omitted == 1  # top entry always shown
 
 
 def test_briefing_sections():
@@ -71,10 +74,20 @@ def test_prime_budget(initialized):  # AC23
 
 def test_prime_at_ignores_working_tree(initialized):
     initialized.write_adr(2, "scoped", scope=["src/**"])
-    initialized.write_adr(3, "other", date="2026-06-01")  # newer, so it wins without a scope hit
+    initialized.write_adr(3, "other", date="2027-01-01")  # newest, so it wins without a scope hit
     initialized.commit_all()
     initialized.write("src/x.py", "x\n")
     now = initialized.adr("prime", "--budget", "4", "--json").json()
     then = initialized.adr("prime", "--at", "HEAD", "--budget", "4", "--json").json()
     assert [a["number"] for a in now["in_force"]] == [2]
     assert [a["number"] for a in then["in_force"]] == [3]
+
+
+def test_top_entry_exceeding_budget_is_shown():
+    g = graph_of((1, "accepted", "2026-01-15", []), (2, "accepted", "2026-01-16", []))
+    chosen, omitted = prime.select(g, g.in_force(), [], budget=1)
+    assert [a.number for a in chosen] == [2] and omitted == 1
+
+
+def test_prime_negative_budget_is_usage_error(initialized):
+    assert initialized.adr("prime", "--budget", "-1").code == 2

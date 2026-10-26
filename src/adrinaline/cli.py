@@ -210,16 +210,6 @@ def cmd_log(ctx: Ctx) -> None:
 def cmd_graph(ctx: Ctx) -> None:
     args = ctx.args
     graph = AdrGraph(ctx.load().adrs)
-    if args.rank:
-        ranks = graph.rank()
-        ordered = sorted(ranks, key=lambda n: (-ranks[n], n))
-        if args.json or args.format == "json":
-            ctx.out.json_mode = True
-            ctx.out.result(graph_data(graph, ordered, graph.edges, ranks), "")
-        else:
-            lines = [f"{ranks[n]:.3f}  {graph.label(n)} [{graph.status(n)}]" for n in ordered]
-            ctx.out.result(None, "\n".join(lines))
-        return
     relations = tuple(args.relation) if args.relation else (IMPACT if args.reverse else FORWARD)
     sub = None
     if args.ref is not None:
@@ -230,6 +220,18 @@ def cmd_graph(ctx: Ctx) -> None:
         edges = [e for e in graph.edges if e.relation in relations]
         nodes = all_nodes(graph)
     fmt = "json" if args.json else args.format
+    if args.rank:
+        ranks = graph.rank()
+        nodes = sorted(nodes, key=lambda n: (-ranks.get(n, 0.0), n))
+        if fmt == "json":
+            ctx.out.json_mode = True
+            ctx.out.result(graph_data(graph, nodes, edges, ranks), "")
+        else:
+            lines = [
+                f"{ranks.get(n, 0.0):.3f}  {graph.label(n)} [{graph.status(n)}]" for n in nodes
+            ]
+            ctx.out.result(None, "\n".join(lines))
+        return
     if fmt == "json":
         ctx.out.json_mode = True
         ctx.out.result(graph_data(graph, nodes, edges), "")
@@ -467,7 +469,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = add("prime", cmd_prime, "print the agent briefing", reads_=True)
     p.add_argument(
-        "--budget", type=int, metavar="N", help="limit decisions in force to about N words"
+        "--budget", type=non_negative, metavar="N", help="limit decisions in force to about N words"
     )
 
     add("skill", cmd_skill, "print the bundled agent skill (SKILL.md)")
@@ -483,6 +485,8 @@ def main(
     args = parser.parse_args(argv)
     if args.at and not args.reads:
         parser.error("--at is only valid for read commands (show, list, index, graph, check, for)")
+    if args.func is cmd_graph and args.rank and not args.json and args.format in ("mermaid", "dot"):
+        parser.error("--rank supports only text and json output")
     cwd = (cwd or Path.cwd()).resolve()
     env = os.environ if env is None else env
     try:

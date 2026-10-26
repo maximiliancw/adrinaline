@@ -58,7 +58,7 @@ def select(
     while heap:
         _, _, i = heapq.heappop(heap)
         cost = _words(entry(graph, adrs[i]))
-        if used + cost <= budget:
+        if not chosen or used + cost <= budget:
             chosen.append(adrs[i])
             used += cost
     chosen.sort(key=lambda adr: adr.number)

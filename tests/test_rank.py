@@ -50,3 +50,13 @@ def test_graph_rank_cli(initialized):  # AC22
     assert data["nodes"][0]["number"] == 2
     assert sum(node["rank"] for node in data["nodes"]) == pytest.approx(1.0, abs=1e-6)
     assert initialized.adr("graph", "--rank").out.splitlines()[0].endswith("0002 A2 [accepted]")
+
+
+def test_graph_rank_honours_selection(initialized):
+    for n in range(2, 6):
+        initialized.write_adr(n, f"a{n}")
+    initialized.adr("link", "3", "depends-on", "2")
+    initialized.adr("link", "4", "depends-on", "2")
+    data = initialized.adr("graph", "3", "--rank", "--json").json()
+    assert [n["number"] for n in data["nodes"]] == [2, 3]
+    assert initialized.adr("graph", "--rank", "--format", "mermaid").code == 2
