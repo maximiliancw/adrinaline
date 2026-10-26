@@ -14,8 +14,10 @@ from pathlib import Path
 
 from adrinaline import git
 from adrinaline.frontmatter import FrontmatterError, flow, render, split
+from adrinaline.graph import ACYCLIC, AdrGraph, Edge
 from adrinaline.model import (
     FILENAME_RE,
+    LINKABLE,
     TRANSITIONS,
     Adr,
     AdrError,
@@ -264,3 +266,59 @@ def create_file(directory: Path, number: int, slug: str, text: str) -> Path:
             except FileExistsError:
                 pass
         number += 1
+
+
+def _cycle_error(relation: str, cycle: list[int]) -> AdrError:
+    path = " -> ".join(f"{n:04d}" for n in cycle)
+    return AdrError("cycle", f"this would create a {relation} cycle: {path}", cycle=cycle)
+
+
+def supersede(graph: AdrGraph, old: Adr, new: Adr, *, force: bool, today: dt.date) -> None:
+    if old.number == new.number:
+        raise AdrError("self-relation", f"{old.id} cannot supersede itself")
+    if old.status is not Status.ACCEPTED and not force:
+        raise AdrError(
+            "invalid-transition",
+            f"{old.id} is {old.status}; only accepted ADRs can be superseded "
+            "(use --force to repair)",
+            current=old.status.value,
+            requested=Status.SUPERSEDED.value,
+        )
+    if cycle := graph.cycle("supersedes", Edge(new.number, old.number, "supersedes")):
+        raise _cycle_error("supersedes", cycle)
+    set_relation(new, "supersedes", [*new.relations["supersedes"], old.number])
+    set_relation(old, "superseded-by", [*old.relations["superseded-by"], new.number])
+    set_status(old, Status.SUPERSEDED, today)
+    save(new)
+    save(old)
+
+
+def link(graph: AdrGraph, src: Adr, relation: str, dst: Adr) -> bool:
+    if relation not in LINKABLE:
+        raise AdrError("bad-relation", f"cannot link with {relation!r}; use one of {LINKABLE}")
+    if src.number == dst.number:
+        raise AdrError("self-relation", f"{src.id} cannot {relation} itself")
+    if relation in ACYCLIC and (
+        cycle := graph.cycle(relation, Edge(src.number, dst.number, relation))
+    ):
+        raise _cycle_error(relation, cycle)
+    if dst.number in src.relations[relation]:
+        return False
+    if relation == "relates-to" and src.number in dst.relations["relates-to"]:
+        return False
+    set_relation(src, relation, [*src.relations[relation], dst.number])
+    save(src)
+    return True
+
+
+def unlink(src: Adr, relation: str, dst: Adr) -> list[Adr]:
+    changed = []
+    pairs = [(src, dst), (dst, src)] if relation == "relates-to" else [(src, dst)]
+    for holder, target in pairs:
+        if target.number in holder.relations[relation]:
+            set_relation(
+                holder, relation, [n for n in holder.relations[relation] if n != target.number]
+            )
+            save(holder)
+            changed.append(holder)
+    return changed

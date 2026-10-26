@@ -13,7 +13,17 @@ from pathlib import Path
 from adrinaline import __version__, git, repo
 from adrinaline.check import run_checks
 from adrinaline.frontmatter import render, split
-from adrinaline.model import Adr, AdrError, Status
+from adrinaline.graph import (
+    FORWARD,
+    IMPACT,
+    AdrGraph,
+    all_nodes,
+    graph_data,
+    render_dot,
+    render_mermaid,
+    render_text,
+)
+from adrinaline.model import LINKABLE, Adr, AdrError, Status
 from adrinaline.output import EXIT_FINDINGS, EXIT_OK, Out, adr_dict, error
 
 AGENT_HINT = "Agents: run `adr prime` first. Every command accepts --json."
@@ -90,6 +100,19 @@ def cmd_new(ctx: Ctx) -> None:
     args, loc = ctx.args, ctx.loc
     if not loc.dir.is_dir():
         raise repo.no_dir(loc)
+    wanted = {r: getattr(args, r.replace("-", "_")) for r in ("supersedes", *LINKABLE)}
+    targets: dict[str, list[Adr]] = {}
+    if any(wanted.values()):
+        adrs = ctx.load().adrs
+        targets = {r: [repo.resolve(adrs, ref) for ref in refs] for r, refs in wanted.items()}
+        for old in targets["supersedes"]:
+            if old.status is not Status.ACCEPTED and not args.force:
+                raise AdrError(
+                    "invalid-transition",
+                    f"{old.id} is {old.status}; only accepted ADRs can be superseded",
+                    current=old.status.value,
+                    requested=Status.SUPERSEDED.value,
+                )
     body = None
     if args.body_file == "-":
         body = sys.stdin.read()
@@ -104,6 +127,16 @@ def cmd_new(ctx: Ctx) -> None:
     path = repo.create_file(loc.dir, number, repo.slugify(args.title), text)
     for n, ref in sorted(skipped.items()):
         ctx.out.note(f"skipped {n:04d}, taken on {ref}")
+    if targets:
+        adrs = ctx.load().adrs
+        by_path = {a.path: a for a in adrs}
+        graph = AdrGraph(adrs)
+        new = by_path[path]
+        for old in targets["supersedes"]:
+            repo.supersede(graph, by_path[old.path], new, force=args.force, today=today())
+        for relation in LINKABLE:
+            for dst in targets[relation]:
+                repo.link(graph, new, relation, by_path[dst.path])
     if args.edit:
         _edit(path)
     adr = repo.parse_adr(path, path.read_text(encoding="utf-8"))
@@ -117,12 +150,68 @@ def cmd_show(ctx: Ctx) -> None:
     if ctx.args.raw:
         ctx.out.result({"path": ctx.out.rel(adr.path), "text": adr.text}, adr.text)
         return
-    relations = {name: nums for name, nums in adr.relations.items() if nums}
-    by_number = {a.number: a for a in adrs}
+    graph = AdrGraph(adrs)
+    relations = graph.related(adr.number)
+    extra = {}
+    if relations.get("superseded-by"):
+        extra["successor"] = graph.successor(adr.number)
     ctx.out.result(
-        adr_dict(adr, ctx.out, relations=relations, body=True),
-        show_text(adr, relations, by_number, ctx.out),
+        adr_dict(adr, ctx.out, relations=relations, body=True, **extra),
+        show_text(adr, relations, graph.nodes, ctx.out),
     )
+
+
+def cmd_supersede(ctx: Ctx) -> None:
+    adrs = ctx.load().adrs
+    old, new = repo.resolve(adrs, ctx.args.old), repo.resolve(adrs, ctx.args.by)
+    repo.supersede(AdrGraph(adrs), old, new, force=ctx.args.force, today=today())
+    ctx.out.result(
+        {"superseded": adr_dict(old, ctx.out), "by": adr_dict(new, ctx.out)},
+        f"{old.id} {old.title}: superseded by {new.id} {new.title}",
+    )
+
+
+def cmd_link(ctx: Ctx) -> None:
+    adrs = ctx.load().adrs
+    src, dst = repo.resolve(adrs, ctx.args.src), repo.resolve(adrs, ctx.args.dst)
+    changed = repo.link(AdrGraph(adrs), src, ctx.args.relation, dst)
+    verb = "linked" if changed else "already linked"
+    ctx.out.result(
+        {"changed": [ctx.out.rel(src.path)] if changed else []},
+        f"{verb}: {src.id} {ctx.args.relation} {dst.id}",
+    )
+
+
+def cmd_unlink(ctx: Ctx) -> None:
+    adrs = ctx.load().adrs
+    src, dst = repo.resolve(adrs, ctx.args.src), repo.resolve(adrs, ctx.args.dst)
+    changed = repo.unlink(src, ctx.args.relation, dst)
+    text = "\n".join(f"updated {ctx.out.rel(a.path)}" for a in changed) or "no such link"
+    ctx.out.result({"changed": [ctx.out.rel(a.path) for a in changed]}, text)
+
+
+def cmd_graph(ctx: Ctx) -> None:
+    args = ctx.args
+    graph = AdrGraph(ctx.load().adrs)
+    relations = tuple(args.relation) if args.relation else (IMPACT if args.reverse else FORWARD)
+    sub = None
+    if args.ref is not None:
+        start = repo.resolve(graph.adrs, args.ref).number
+        sub = graph.reachable(start, relations, reverse=args.reverse, depth=args.depth)
+        nodes, edges = sub.nodes, sub.edges
+    else:
+        edges = [e for e in graph.edges if e.relation in relations]
+        nodes = all_nodes(graph)
+    fmt = "json" if args.json else args.format
+    if fmt == "json":
+        ctx.out.json_mode = True
+        ctx.out.result(graph_data(graph, nodes, edges), "")
+    elif fmt == "mermaid":
+        ctx.out.result(None, render_mermaid(graph, nodes, edges))
+    elif fmt == "dot":
+        ctx.out.result(None, render_dot(graph, nodes, edges))
+    else:
+        ctx.out.result(None, render_text(graph, sub))
 
 
 def cmd_list(ctx: Ctx) -> None:
@@ -212,6 +301,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--tag", action="append", default=[])
     p.add_argument("--body-file", metavar="PATH", help="body below the title ('-' = stdin)")
     p.add_argument("--edit", action="store_true", help="open $VISUAL/$EDITOR afterwards")
+    for relation in ("supersedes", *LINKABLE):
+        p.add_argument(f"--{relation}", action="append", default=[], metavar="REF")
+    p.add_argument("--force", action="store_true", help="supersede ADRs that are not accepted")
 
     p = add("show", cmd_show, "show one ADR")
     p.add_argument("ref")
@@ -234,6 +326,27 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = add("check", cmd_check, "validate all ADRs")
     p.add_argument("--strict", action="store_true", help="fail on warnings too")
+
+    p = add("supersede", cmd_supersede, "mark OLD as superseded by NEW")
+    p.add_argument("old", metavar="OLD")
+    p.add_argument("--by", required=True, metavar="NEW")
+    p.add_argument("--force", action="store_true", help="supersede even if OLD is not accepted")
+
+    for name, func, help_ in (
+        ("link", cmd_link, "add a relation"),
+        ("unlink", cmd_unlink, "remove a relation"),
+    ):
+        p = add(name, func, help_)
+        p.add_argument("src", metavar="REF")
+        p.add_argument("relation", choices=LINKABLE)
+        p.add_argument("dst", metavar="REF")
+
+    p = add("graph", cmd_graph, "render the ADR graph")
+    p.add_argument("ref", nargs="?")
+    p.add_argument("--relation", action="append", choices=FORWARD)
+    p.add_argument("--depth", type=int)
+    p.add_argument("--reverse", action="store_true", help="follow inverse edges (impact)")
+    p.add_argument("--format", choices=("text", "mermaid", "dot", "json"), default="text")
 
     add("skill", cmd_skill, "print the bundled agent skill (SKILL.md)")
     return parser
