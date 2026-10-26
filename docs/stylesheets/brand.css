@@ -1,0 +1,17 @@
+/* Brand colours, see assets/brand/palette.json */
+:root > * {
+  --md-primary-fg-color: #1f2329;
+  --md-primary-fg-color--light: #5b6270;
+  --md-primary-fg-color--dark: #0e1116;
+  --md-primary-bg-color: #eceef2;
+  --md-accent-fg-color: #e8392c;
+  --md-typeset-a-color: #2f6bff;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #0e1116;
+  --md-primary-fg-color--dark: #0e1116;
+  --md-default-bg-color: #12161c;
+  --md-accent-fg-color: #ff4f3f;
+  --md-typeset-a-color: #7ba3ff;
+}

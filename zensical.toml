@@ -4,6 +4,8 @@ site_description = "Git-native Architecture Decision Records for humans and codi
 site_url = "https://maximiliancw.github.io/adrinaline/"
 repo_url = "https://github.com/maximiliancw/adrinaline"
 docs_dir = "docs"
+extra_css = ["stylesheets/brand.css"]
+extra_javascript = ["javascripts/follow-system-scheme.js"]
 nav = [
   { "Home" = "index.md" },
   { "Specification" = "SPEC.md" },
@@ -14,3 +16,21 @@ nav = [
 
 [project.plugins.mkdocstrings.handlers.python]
 paths = ["src"]
+
+[project.theme]
+logo = "assets/logo.svg"
+favicon = "assets/favicon.png"
+
+# Always follow the OS colour scheme (no toggle), so the README banner's <picture>
+# always matches the page.
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+primary = "custom"
+accent = "custom"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+primary = "custom"
+accent = "custom"

@@ -1,0 +1,28 @@
+{
+  "on-light": {
+    "bond": "#9AA1AC",
+    "hydrogen": "#B8BEC8",
+    "carbon": "#1F2329",
+    "nitrogen": "#2F6BFF",
+    "oxygen": "#E8392C",
+    "ink": "#1F2329",
+    "accent": "#E8392C",
+    "muted": "#5B6270",
+    "bg": "#FFFFFF",
+    "tile": "#F4F5F7",
+    "chip": "#EEF0F3"
+  },
+  "on-dark": {
+    "bond": "#4A515E",
+    "hydrogen": "#7C8494",
+    "carbon": "#ECEEF2",
+    "nitrogen": "#5B8CFF",
+    "oxygen": "#FF4F3F",
+    "ink": "#ECEEF2",
+    "accent": "#FF4F3F",
+    "muted": "#9AA1AC",
+    "bg": "#0E1116",
+    "tile": "#0E1116",
+    "chip": "#1A1F27"
+  }
+}

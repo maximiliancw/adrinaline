@@ -48,6 +48,10 @@ docs = [
     "zensical>=0.0.73",
 ]
 
+[tool.ty.src]
+# assets/brand/src has its own build-only dependencies
+exclude = ["assets"]
+
 [tool.ruff]
 line-length = 100
 extend-exclude = ["docs"]
