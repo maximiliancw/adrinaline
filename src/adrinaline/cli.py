@@ -271,7 +271,7 @@ def cmd_check(ctx: Ctx) -> int:
     findings = run_checks(
         ctx.load(),
         template_exists=ctx.loc.template.is_file(),
-        tracked=git.tracked_files(root) if root else None,
+        tracked=(git.files_at(root, at) if at else git.tracked_files(root)) if root else None,
         changed=git.changed_files(root, ctx.args.diff) if root and ctx.args.diff else None,
         taken_elsewhere=set(git.numbers_on_refs(root, ctx.loc.dir)) if root and not at else None,
     )
@@ -347,7 +347,13 @@ def build_parser() -> argparse.ArgumentParser:
         )
     parser.add_argument("--version", action="version", version=f"adr {__version__}")
     reads = argparse.ArgumentParser(add_help=False)
-    reads.add_argument("--at", metavar="REF", help="read ADRs as of a git revision")
+    for target, hidden in ((reads, True), (parser, False)):
+        target.add_argument(
+            "--at",
+            metavar="REF",
+            default=S if hidden else None,
+            help="read ADRs as of a git revision (read commands only)",
+        )
     sub = parser.add_subparsers(dest="command", required=True, metavar="COMMAND")
 
     def add(
@@ -356,7 +362,7 @@ def build_parser() -> argparse.ArgumentParser:
         p = sub.add_parser(
             name, parents=[common, reads] if reads_ else [common], help=help_, description=help_
         )
-        p.set_defaults(func=func)
+        p.set_defaults(func=func, reads=reads_)
         return p
 
     p = add("init", cmd_init, "create the ADR directory, template and ADR 0001")
@@ -436,7 +442,10 @@ def main(
     cwd: Path | None = None,
     env: Mapping[str, str] | None = None,
 ) -> int:
-    args = build_parser().parse_args(argv)
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if args.at and not args.reads:
+        parser.error("--at is only valid for read commands (show, list, index, graph, check, for)")
     cwd = (cwd or Path.cwd()).resolve()
     env = os.environ if env is None else env
     try:

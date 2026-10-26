@@ -79,3 +79,34 @@ def test_at_tolerates_binary_files(initialized):
     result = initialized.adr("list", "--at", "HEAD", "--json")
     assert result.code == 0, result.err
     assert result.json()
+
+
+def test_at_is_global_flag(initialized):
+    initialized.commit_all("first")
+    initialized.adr("new", "Later")
+    before = initialized.adr("--at", "HEAD", "list", "--json")
+    assert before.code == 0, before.err
+    assert before.json() == initialized.adr("list", "--at", "HEAD", "--json").json()
+    assert initialized.adr("--at", "HEAD", "accept", "1").code == 2
+
+
+def test_at_with_adr_dir_outside_repo(ws, tmp_path):
+    env = {"ADR_DIR": str(tmp_path / "elsewhere")}
+    ws.adr("init", env=env)
+    ws.write("README.md", "x\n")
+    ws.commit_all("first")
+    result = ws.adr("list", "--at", "HEAD", "--json", env=env)
+    err = result.json()["error"]
+    assert result.code == 3 and err["code"] == "no-adr-dir"
+    assert "None" not in err["message"] and "outside" in err["message"]
+
+
+def test_check_at_uses_files_at_rev(initialized):
+    initialized.write_adr(2, "db", scope=["src/db/**"])
+    initialized.commit_all("adrs")
+    initialized.write("src/db/conn.py", "x\n")
+    plain = initialized.adr("check", "--json").json()
+    at = initialized.adr("check", "--at", "HEAD", "--json").json()
+    codes = lambda r: [f["code"] for f in r["findings"]]  # noqa: E731
+    assert "scope-matches-nothing" not in codes(plain)
+    assert "scope-matches-nothing" in codes(at)

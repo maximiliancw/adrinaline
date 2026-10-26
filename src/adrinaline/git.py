@@ -61,7 +61,13 @@ def read_dir_at(root: Path | None, rev: str, directory: Path) -> list[tuple[Path
     if run(["rev-parse", "--verify", "--quiet", f"{rev}^{{commit}}"], root) is None:
         raise AdrError("bad-revision", f"unknown git revision: {rev}", rev=rev)
     rel = _rel(root, directory)
-    listing = run(["ls-tree", "--name-only", rev, "--", f"{rel}/"], root) if rel else None
+    if rel is None:
+        raise AdrError(
+            "no-adr-dir",
+            f"ADR directory {directory} is outside the git repository; --at needs it inside",
+            rev=rev,
+        )
+    listing = run(["ls-tree", "--name-only", rev, "--", f"{rel}/"], root)
     names = [n for n in (listing or "").splitlines() if n]
     if not names:
         raise AdrError("no-adr-dir", f"no ADR directory {rel} at {rev}", rev=rev)
@@ -113,4 +119,9 @@ def working_changes(root: Path) -> list[str]:
 
 def tracked_files(root: Path) -> list[str]:
     out = run(["ls-files", "--cached", "--others", "--exclude-standard"], root) or ""
+    return [line for line in out.splitlines() if line]
+
+
+def files_at(root: Path, rev: str) -> list[str]:
+    out = run(["ls-tree", "-r", "--name-only", rev], root) or ""
     return [line for line in out.splitlines() if line]
