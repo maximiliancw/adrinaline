@@ -88,7 +88,7 @@ src/adrinaline/
   output.py        human vs JSON rendering, error envelope, exit codes
   cli.py           argparse wiring; one small function per command
                    (`cmd_<name>`, so `adr for` maps to `cmd_for`)
-  data/            template.md, 0001 ADR text, SKILL.md
+  data/            template.md, 0001 ADR text, SKILL.md, references/
 tests/
 ```
 
@@ -298,7 +298,7 @@ Global flags: `--json` (machine output), `--dir PATH` (overrides §5),
 | `adr renumber REF --to N` | Rename the file, rewrite every relation that points at the old number, and rewrite Markdown links of the form `NNNN-slug.md` in all ADR bodies. Refuses if N is taken. If the old number is duplicated, numeric relations are left alone (they keep pointing at the remaining file) and only filename links are rewritten. |
 | `adr log REF` | `git log --follow` for the ADR file (date, author, subject). |
 | `adr prime [--budget N]` | Print the agent briefing (§12), optionally limited to about N words. |
-| `adr skill` | Print the bundled `SKILL.md` so it can be redirected into an agent's skill directory. |
+| `adr skill [--install DIR]` | Print the bundled `SKILL.md`. With `--install`, write `SKILL.md` and `references/frontmatter.md` into the skill directory `DIR` (created with parents) and print the written paths. |
 
 All mutating commands print what changed (paths and fields) in human mode, and
 the same as JSON with `--json`.
