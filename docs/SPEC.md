@@ -428,9 +428,11 @@ cross-branch numbers (§10), `adr log`. Never: `add`, `commit`, `fetch`,
   per test, covering each command in human and `--json` mode, including error
   codes.
 - `ruff check`, `ruff format --check`, `ty check` must pass.
-- CI (GitHub Actions): lint and tests on `ubuntu-latest` and `macos-latest`
-  with Python 3.14. A pushed tag `v*` builds with
-  `uv build` and publishes to PyPI via trusted publishing.
+- CI (GitHub Actions): on pull requests, commit-message, lint, test and
+  `adr check --strict` gates on `ubuntu-latest` and `macos-latest` with
+  Python 3.14. Every push to `main` releases when commitizen finds a bump:
+  tag, `uv build`, PyPI trusted publishing, GitHub Release (ADR 0006).
+  Docs are built with zensical and published to GitHub Pages.
 
 ## 16. Acceptance criteria
 

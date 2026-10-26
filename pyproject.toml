@@ -1,6 +1,6 @@
 [project]
 name = "adrinaline"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Git-native Architecture Decision Records for humans and coding agents"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -26,14 +26,22 @@ adr = "adrinaline.cli:run"
 adrinaline = "adrinaline.cli:run"
 
 [build-system]
-requires = ["uv_build>=0.13.5,<0.14.0"]
-build-backend = "uv_build"
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
 
 [dependency-groups]
 dev = [
+    "commitizen>=4.19.3",
     "pytest>=9.1.1",
     "ruff>=0.17.2",
     "ty>=0.0.92",
+]
+docs = [
+    "mkdocstrings-python>=2.0.10",
+    "zensical>=0.0.73",
 ]
 
 [tool.ruff]
@@ -42,6 +50,12 @@ extend-exclude = ["docs"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+version_provider = "scm"
+tag_format = "v$version"
+major_version_zero = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
