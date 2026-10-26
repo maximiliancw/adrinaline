@@ -60,6 +60,9 @@ version_provider = "scm"
 tag_format = "v$version"
 major_version_zero = true
 
+[tool.uv]
+required-version = "==0.13.5"  # setup-uv installs this in CI; uv audit is still experimental
+
 [tool.pytest]
 testpaths = ["tests"]
 strict = true

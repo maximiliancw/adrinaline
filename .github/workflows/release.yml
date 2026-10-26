@@ -45,7 +45,9 @@ jobs:
         run: |
           git tag "$TAG"  # local only, so hatch-vcs builds this version
           uv build
-          uv run cz changelog "$TAG" --dry-run > notes.md
+          mkdir release
+          uv run cz changelog "$TAG" --dry-run > release/notes.md
+          uv export --format cyclonedx1.5 --no-dev --frozen > release/sbom.cdx.json
           prev=$(git describe --tags --abbrev=0 HEAD^)
           fence() { echo "$1"; echo '```'; "${@:2}"; echo '```'; }
           {
@@ -63,8 +65,8 @@ jobs:
       - if: steps.next.outputs.tag
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: notes
-          path: notes.md
+          name: release
+          path: release/
           if-no-files-found: error
 
   tag:
@@ -88,6 +90,7 @@ jobs:
     environment: pypi  # trusted publisher; deployments limited to main
     permissions:
       id-token: write
+      attestations: write
     steps:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -96,6 +99,9 @@ jobs:
       - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           enable-cache: false
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/*
       - run: uv publish
 
   github-release:
@@ -106,8 +112,8 @@ jobs:
     steps:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: notes
+          name: release
       - env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.tag.outputs.tag }}
-        run: gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TAG" --notes-file notes.md
+        run: gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TAG" --notes-file notes.md sbom.cdx.json
