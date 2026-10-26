@@ -123,3 +123,23 @@ def test_renumber_refuses_taken_number(initialized):
     result = initialized.adr("renumber", "2", "--to", "1", "--json")
     assert result.code == 3 and result.json()["error"]["code"] == "exists"
     assert (initialized.adr_dir / "0002-two.md").is_file()
+
+
+def test_new_dedupes_repeated_target(initialized):
+    initialized.adr("new", "Use MySQL", "--accepted")
+    result = initialized.adr("new", "Five", "--supersedes", "2", "--supersedes", "0002")
+    assert result.code == 0, result.err
+    assert len(list(initialized.adr_dir.glob("0003-*.md"))) == 1
+    assert initialized.path_of(2).read_text().count("superseded-by: [3]") == 1
+
+
+def test_graph_text_honours_relation_filter(initialized):
+    setup_chain(initialized)
+    initialized.adr("link", "3", "depends-on", "1")
+    initialized.adr("link", "3", "amends", "2")
+    out = initialized.adr("graph", "--relation", "amends").out
+    assert "amends -> 0002" in out and "depends-on" not in out
+
+
+def test_graph_negative_depth_is_usage_error(initialized):
+    assert initialized.adr("graph", "1", "--depth", "-1").code == 2

@@ -80,7 +80,7 @@ class AdrGraph:
     def cycle(self, relation: str, extra: Edge | None = None) -> list[int] | None:
         sorter: TopologicalSorter[int] = TopologicalSorter()
         for edge in [*self.edges, *([extra] if extra else [])]:
-            if edge.relation == relation:
+            if edge.relation == relation and edge.src != edge.dst:
                 sorter.add(edge.src, edge.dst)
         try:
             sorter.prepare()
@@ -136,13 +136,15 @@ def all_nodes(graph: AdrGraph) -> list[int]:
     return sorted({*graph.nodes, *(e.src for e in graph.edges), *(e.dst for e in graph.edges)})
 
 
-def render_text(graph: AdrGraph, sub: Subgraph | None) -> str:
+def render_text(graph: AdrGraph, sub: Subgraph | None, edges: list[Edge] | None = None) -> str:
     if sub is None:
         lines: list[str] = []
         for number in sorted(graph.nodes):
             lines.append(f"{graph.label(number)} [{graph.status(number)}]")
             lines += [
-                f"  {e.relation} -> {graph.label(e.dst)}" for e in graph.edges if e.src == number
+                f"  {e.relation} -> {graph.label(e.dst)}"
+                for e in (graph.edges if edges is None else edges)
+                if e.src == number
             ]
         return "\n".join(lines)
     children: dict[int, list[tuple[str, int]]] = defaultdict(list)

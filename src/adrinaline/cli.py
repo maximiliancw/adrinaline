@@ -96,6 +96,13 @@ def _edit(path: Path) -> None:
         raise AdrError("io", f"cannot run editor {editor!r}: {exc}") from exc
 
 
+def non_negative(value: str) -> int:
+    n = int(value)
+    if n < 0:
+        raise argparse.ArgumentTypeError("must be >= 0")
+    return n
+
+
 def cmd_new(ctx: Ctx) -> None:
     args, loc = ctx.args, ctx.loc
     if not loc.dir.is_dir():
@@ -104,7 +111,10 @@ def cmd_new(ctx: Ctx) -> None:
     targets: dict[str, list[Adr]] = {}
     if any(wanted.values()):
         adrs = ctx.load().adrs
-        targets = {r: [repo.resolve(adrs, ref) for ref in refs] for r, refs in wanted.items()}
+        targets = {
+            r: list({a.number: a for a in (repo.resolve(adrs, ref) for ref in refs)}.values())
+            for r, refs in wanted.items()
+        }
         for old in targets["supersedes"]:
             if old.status is not Status.ACCEPTED and not args.force:
                 raise AdrError(
@@ -211,7 +221,7 @@ def cmd_graph(ctx: Ctx) -> None:
     elif fmt == "dot":
         ctx.out.result(None, render_dot(graph, nodes, edges))
     else:
-        ctx.out.result(None, render_text(graph, sub))
+        ctx.out.result(None, render_text(graph, sub, edges))
 
 
 def cmd_list(ctx: Ctx) -> None:
@@ -354,7 +364,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = add("graph", cmd_graph, "render the ADR graph")
     p.add_argument("ref", nargs="?")
     p.add_argument("--relation", action="append", choices=FORWARD)
-    p.add_argument("--depth", type=int)
+    p.add_argument("--depth", type=non_negative)
     p.add_argument("--reverse", action="store_true", help="follow inverse edges (impact)")
     p.add_argument("--format", choices=("text", "mermaid", "dot", "json"), default="text")
 
