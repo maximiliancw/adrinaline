@@ -24,6 +24,9 @@ docs = [
     { name = "mkdocstrings-python" },
     { name = "zensical" },
 ]
+release = [
+    { name = "commitizen" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -45,6 +48,7 @@ docs = [
     { name = "mkdocstrings-python", specifier = ">=2.0.10" },
     { name = "zensical", specifier = ">=0.0.73" },
 ]
+release = [{ name = "commitizen", specifier = ">=4.19.3" }]
 
 [[package]]
 name = "annotated-types"
