@@ -1,9 +1,9 @@
 # adrinaline brand assets
 
 The mark is a flat ball-and-stick drawing of **(R)-adrenaline** (L-epinephrine), the
-naturally occurring enantiomer, in the same pose as the reference renders in `assets/`.
-The geometry was computed from scratch (RDKit conformer, MMFF-optimised, fitted to the
-reference view), not traced from the renders. Overlaps are cut out geometrically, so
+naturally occurring enantiomer, posed after a third-party reference render that is not
+included in this repository. The geometry was computed from scratch (RDKit conformer,
+MMFF-optimised, fitted to the reference view), not traced from the render. Overlaps are cut out geometrically, so
 every SVG is plain filled paths: no masks, strokes, filters or fonts.
 
 The wordmark is set in Space Grotesk Bold, converted to outlines. **adr** is in oxygen
@@ -22,7 +22,7 @@ red because it is the command name.
 | Profile header (X, Bluesky, Mastodon) | `social/header-1500x500-on-*.png` |
 | Small UI logo (docs header, app bars, 20–48 px) | `svg/icon-small-tile-on-*.svg` |
 | App icon, rounded tile | `svg/icon-tile-on-*.svg`, `png/icon-tile-on-*-{256,512,1024}.png` |
-| Favicon, PWA, Apple touch icon | `favicon/` |
+| Favicon, PWA, Apple touch icon | `favicon/` (`docs/assets/favicon.png` is a copy of `favicon-48.png`, because the docs site only serves files from `docs/`) |
 | One-colour use (print, engraving, stamps, embroidery) | `*-mono-black.*`, `*-mono-white.*` |
 
 `on-light` means *for light backgrounds*, `on-dark` *for dark backgrounds*. All `svg/`
@@ -89,14 +89,17 @@ C dark, H light), so chemists will read the molecule correctly.
 
 ## Rebuilding
 
+Needs the cairo system library (`brew install cairo` on macOS, `libcairo2` on Debian/Ubuntu).
+
 ```bash
-uv run --no-project --with cairosvg --with shapely --with fonttools --with pillow \
+uv run --no-project --python 3.14 --with cairosvg --with shapely --with fonttools --with pillow \
     python assets/brand/src/build.py
+# macOS: prefix with DYLD_FALLBACK_LIBRARY_PATH="$(brew --prefix cairo)/lib"
 ```
 
 - `src/build.py`: layouts and exports; tweak palette, sizes and copy here.
 - `src/mark.py`: the flat renderer (atom radii, bond widths, knock-out gaps).
 - `src/geometry.json`: projected 2D coordinates plus depth for all 26 atoms.
 - `src/geometry/`: the one-off scripts that produced `geometry.json` (needs `rdkit`,
-  `opencv-python-headless`, `scipy` and the original render).
+  `opencv-python-headless`, `scipy` and the reference render, which is not included).
 - `src/fonts/`: Space Grotesk and JetBrains Mono, both SIL Open Font License 1.1.

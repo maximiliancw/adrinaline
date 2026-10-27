@@ -1,6 +1,7 @@
 """Build the adrinaline brand assets.
 
-    uv run --no-project --with cairosvg --with shapely --with fonttools --with pillow \
+    uv run --no-project --python 3.14 \
+        --with cairosvg --with shapely --with fonttools --with pillow \
         python assets/brand/src/build.py
 
 Everything is generated from geometry.json (a computed conformer of (R)-adrenaline)

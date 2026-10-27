@@ -218,3 +218,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Third-party reference renders for the brand mark; never commit
+assets/adrenaline-molecule-*.png
