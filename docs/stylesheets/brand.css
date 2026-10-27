@@ -1,11 +1,12 @@
-/* Brand colours, see assets/brand/palette.json */
+/* Brand colours, see assets/brand/palette.json. On light backgrounds, link and
+   accent text are darkened from the logo's nitrogen and oxygen to reach WCAG AA. */
 :root > * {
   --md-primary-fg-color: #1f2329;
   --md-primary-fg-color--light: #5b6270;
   --md-primary-fg-color--dark: #0e1116;
   --md-primary-bg-color: #eceef2;
-  --md-accent-fg-color: #e8392c;
-  --md-typeset-a-color: #2f6bff;
+  --md-accent-fg-color: #cc3326;
+  --md-typeset-a-color: #2a63f0;
 }
 
 [data-md-color-scheme="slate"] {
