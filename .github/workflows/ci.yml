@@ -24,7 +24,7 @@ jobs:
         with:
           fetch-depth: 0  # cz check reads the PR's commits
           persist-credentials: false
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
       - run: uv run zizmor --min-severity=low .github/workflows
       - run: uv run cz check --rev-range "origin/$BASE_REF..HEAD"
         env:
@@ -41,7 +41,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
       - run: uv run --group docs zensical build --clean --strict
 
   test:
@@ -54,7 +54,7 @@ jobs:
         with:
           fetch-depth: 0  # hatch-vcs and the git tests need tags and history
           persist-credentials: false
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
       - run: uv run pytest -q --cov
       - if: matrix.os == 'ubuntu-latest'
         run: uv run coverage report --format=markdown >> "$GITHUB_STEP_SUMMARY"
