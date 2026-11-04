@@ -69,7 +69,7 @@ tag_format = "v$version"
 major_version_zero = true
 
 [tool.uv]
-required-version = "==0.13.5"  # setup-uv installs this in CI; uv audit is still experimental
+required-version = ">=0.13.5"  # setup-uv reads this pin; uv audit needs 0.13.5+ (still experimental)
 preview-features = ["audit-command"]
 
 [tool.pytest]
