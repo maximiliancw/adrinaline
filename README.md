@@ -157,7 +157,7 @@ adr check --diff origin/main --strict      # CI gate: changed files governed by 
 - uses: actions/checkout@v7
   with:
     fetch-depth: 0   # shallow or fresh clones lack origin/main history, so --diff fails
-- uses: astral-sh/setup-uv@v10.3.2
+- uses: astral-sh/setup-uv@v10.3.3
 - run: uvx adrinaline check --diff origin/main --strict
 ```
 
