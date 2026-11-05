@@ -1,4 +1,9 @@
 import json
+import shutil
+import subprocess
+from pathlib import Path
+
+import pytest
 
 
 def setup_chain(w):
@@ -143,3 +148,43 @@ def test_graph_text_honours_relation_filter(initialized):
 
 def test_graph_negative_depth_is_usage_error(initialized):
     assert initialized.adr("graph", "1", "--depth", "-1").code == 2
+
+
+SNAPSHOTS = Path(__file__).parent / "snapshots"
+
+
+def sample_repo(w):
+    """The four ADRs behind tests/snapshots/sample.*; mirrors tests/test_graph.py::sample()."""
+    w.write_adr(1, "record-decisions", title="Record decisions")
+    w.write_adr(2, "use-mysql", title="Use MySQL", status="superseded", superseded_by=[3])
+    w.write_adr(3, "use-postgresql", title="Use PostgreSQL", supersedes=[2], depends_on=[1])
+    w.write_adr(
+        4,
+        "add-read-replicas",
+        title="Add read replicas",
+        status="proposed",
+        amends=[3],
+        relates_to=[1],
+    )
+
+
+def test_graph_exports_every_relation(ws):  # AC17
+    sample_repo(ws)
+    data = ws.adr("graph", "--format", "json").json()
+    assert [n["number"] for n in data["nodes"]] == [1, 2, 3, 4]
+    assert data["edges"] == [
+        {"from": 3, "to": 2, "relation": "supersedes"},
+        {"from": 3, "to": 1, "relation": "depends-on"},
+        {"from": 4, "to": 3, "relation": "amends"},
+        {"from": 4, "to": 1, "relation": "relates-to"},
+    ]
+    assert ws.adr("graph", "--format", "mermaid").out == (SNAPSHOTS / "sample.mmd").read_text()
+    assert ws.adr("graph", "--format", "dot").out == (SNAPSHOTS / "sample.dot").read_text()
+
+
+@pytest.mark.skipif(shutil.which("dot") is None, reason="Graphviz not installed")
+def test_graph_dot_is_valid_graphviz(ws):  # AC17
+    sample_repo(ws)
+    dot = ws.adr("graph", "--format", "dot").out
+    proc = subprocess.run(["dot", "-Tsvg"], input=dot, capture_output=True, text=True)
+    assert proc.returncode == 0, proc.stderr

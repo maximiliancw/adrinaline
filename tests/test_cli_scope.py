@@ -1,3 +1,6 @@
+import pytest
+
+
 def scoped_repo(w):
     w.write("src/db/conn.py", "x\n")
     w.write("src/api/app.py", "x\n")
@@ -80,3 +83,20 @@ def test_check_diff_reports_untracked_new_file(initialized):
     result = initialized.adr("check", "--diff", "HEAD", "--json")
     paths = {f["path"] for f in result.json()["findings"] if f["code"] == "scoped-change"}
     assert "src/db/new.py" in paths
+
+
+def test_scope_flow_new_accept_for(initialized):  # AC19
+    initialized.write("src/db/conn.py", "x\n")
+    assert initialized.adr("new", "Pool", "--scope", "src/db/**").code == 0
+    assert initialized.adr("for", "src/db/conn.py", "--json").json()["src/db/conn.py"] == []
+    assert initialized.adr("accept", "2").code == 0
+    data = initialized.adr("for", "src/db/conn.py", "--json").json()
+    assert [a["number"] for a in data["src/db/conn.py"]] == [2]
+
+
+@pytest.mark.parametrize("glob", ["/abs/**", "../x/**"])
+def test_bad_scope_exits_3_and_writes_nothing(initialized, glob):  # AC19
+    result = initialized.adr("new", "Bad", "--scope", glob, "--json")
+    assert result.code == 3, result.err
+    assert result.json()["error"]["code"] == "bad-scope"
+    assert not list(initialized.adr_dir.glob("0002-*"))
