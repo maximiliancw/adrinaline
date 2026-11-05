@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import pytest
@@ -92,3 +93,71 @@ def test_snake_case_relation_key_warns():
     found = run_checks(s, template_exists=True)
     assert [(f.code, f.severity) for f in found] == [("unknown-relation-key", "warning")]
     assert "depends-on" in found[0].message
+
+
+# --- CLI: every §11 code through `adr check --json` (AC10) ---
+
+SPEC = Path(__file__).parent.parent / "docs" / "SPEC.md"
+
+
+def _governed_change(w):
+    w.write("src/db/conn.py", "x\n")
+    w.write_adr(2, "db", scope=["src/db/**"])
+    w.commit_all()
+    w.write("src/db/conn.py", "y\n")
+
+
+FRONT = "---\nstatus: accepted\ndate: 2026-01-15\n"
+CLI_CASES = {
+    "bad-filename": lambda w: w.write("docs/adr/notes.md", "# Notes\n"),
+    "no-frontmatter": lambda w: w.write("docs/adr/0002-x.md", "broken\n"),
+    "missing-field": lambda w: w.write("docs/adr/0002-x.md", "---\nstatus: accepted\n---\n# X\n"),
+    "bad-field": lambda w: w.write_adr(2, "x", depends_on="one"),
+    "bad-status": lambda w: w.write_adr(2, "x", status="bogus"),
+    "bad-date": lambda w: w.write_adr(2, "x", date="yesterday"),
+    "no-title": lambda w: w.write("docs/adr/0002-x.md", f"{FRONT}---\nno heading\n"),
+    "duplicate-number": lambda w: (w.write_adr(2, "x"), w.write_adr(2, "y")),
+    "dangling-relation": lambda w: w.write_adr(2, "x", depends_on=[7]),
+    "asymmetric-relation": lambda w: w.write_adr(2, "x", supersedes=[1]),
+    "self-relation": lambda w: w.write_adr(2, "x", relates_to=[2]),
+    "cycle": lambda w: (w.write_adr(2, "x", depends_on=[3]), w.write_adr(3, "y", depends_on=[2])),
+    "status-mismatch": lambda w: w.write_adr(2, "x", status="superseded"),
+    "number-gap": lambda w: w.write_adr(3, "x"),
+    "no-template": lambda w: (w.adr_dir / ".template.md").unlink(),
+    "bad-scope": lambda w: w.write_adr(2, "x", scope=["/etc/**"]),
+    "unknown-relation-key": lambda w: w.write(
+        "docs/adr/0002-x.md", f"{FRONT}depends_on: [1]\n---\n# X\n"
+    ),
+    "scope-matches-nothing": lambda w: w.write_adr(2, "x", scope=["nowhere/**"]),
+    "scoped-change": _governed_change,
+}
+
+
+def spec_severities() -> dict[str, str]:
+    section = SPEC.read_text().split("## 11.")[1].split("\n## ")[0]
+    return dict(re.findall(r"^\| `([a-z-]+)` \| (error|warning) \|", section, re.M))
+
+
+def test_cli_cases_cover_spec_section_11():
+    assert set(spec_severities()) == set(CLI_CASES)
+
+
+@pytest.mark.parametrize("code", CLI_CASES)
+def test_every_check_code_is_reported_by_the_cli(initialized, code):  # AC10
+    CLI_CASES[code](initialized)
+    args = ("--diff", "HEAD") if code == "scoped-change" else ()
+    result = initialized.adr("check", *args, "--json")
+    severity = spec_severities()[code]
+    assert result.code == (1 if severity == "error" else 0), result.err
+    assert (code, severity) in {(f["code"], f["severity"]) for f in result.json()["findings"]}
+
+
+def test_check_json_shape(initialized):  # AC10
+    assert initialized.adr("check", "--json").json() == {"ok": True, "findings": []}
+    initialized.write_adr(3, "x", depends_on=[7])  # one error, one warning
+    data = initialized.adr("check", "--json").json()
+    assert set(data) == {"ok", "findings"} and data["ok"] is False
+    assert {f["severity"] for f in data["findings"]} == {"error", "warning"}
+    for finding in data["findings"]:
+        assert set(finding) == {"code", "severity", "path", "message"}
+        assert all(isinstance(v, str) for v in finding.values())

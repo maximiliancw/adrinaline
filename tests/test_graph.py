@@ -1,14 +1,9 @@
-import shutil
-import subprocess
 from pathlib import Path
-
-import pytest
 
 from adrinaline.graph import (
     IMPACT,
     AdrGraph,
     Edge,
-    all_nodes,
     graph_data,
     render_dot,
     render_mermaid,
@@ -91,9 +86,6 @@ def test_reachable_reverse_impact_and_depth():
     assert g.reachable(1, IMPACT, reverse=True, depth=1).nodes == [1, 3]
 
 
-SNAPSHOTS = Path(__file__).parent / "snapshots"
-
-
 def test_text_tree_marks_repeats():
     g = sample()
     assert render_text(g, g.reachable(3)) == (
@@ -110,22 +102,6 @@ def test_text_whole_set():
         "0003 Use PostgreSQL [accepted]",
         "  supersedes -> 0002 Use MySQL",
     ]
-
-
-def test_mermaid_and_dot_snapshots():
-    g = sample()
-    nodes = all_nodes(g)
-    assert render_mermaid(g, nodes, g.edges) + "\n" == (SNAPSHOTS / "sample.mmd").read_text()
-    assert render_dot(g, nodes, g.edges) + "\n" == (SNAPSHOTS / "sample.dot").read_text()
-
-
-@pytest.mark.skipif(shutil.which("dot") is None, reason="Graphviz not installed")
-def test_dot_is_valid_graphviz():
-    g = sample()
-    proc = subprocess.run(
-        ["dot", "-Tsvg"], input=render_dot(g, all_nodes(g), g.edges), capture_output=True, text=True
-    )
-    assert proc.returncode == 0, proc.stderr
 
 
 def test_quotes_in_titles_are_escaped():

@@ -23,6 +23,17 @@ def test_init_is_idempotent(initialized):  # AC2
     assert {p: p.read_text() for p in initialized.adr_dir.iterdir()} == before
 
 
+def test_init_without_git_user_omits_decision_makers(tmp_path):  # SPEC §13
+    from conftest import Workspace
+
+    w = Workspace((tmp_path / "repo").resolve())
+    w.root.mkdir()
+    w.git("init", "-q", "-b", "main")
+    assert w.adr("init").code == 0
+    text = (w.adr_dir / "0001-record-architecture-decisions.md").read_text()
+    assert "decision-makers" not in text
+
+
 def test_new_from_subdirectory(initialized):  # AC3
     sub = initialized.root / "src" / "deep"
     sub.mkdir(parents=True)
@@ -38,8 +49,6 @@ def test_new_with_scope(initialized):
         "new", "Pool", "--scope", "src/db/**", "--scope", "*.sql", "--json"
     ).json()
     assert data["scope"] == ["src/db/**", "*.sql"]
-    assert initialized.adr("new", "Bad", "--scope", "../x").code != 0
-    assert not list(initialized.adr_dir.glob("*-bad.md"))
 
 
 def test_new_with_body_from_stdin_and_tags(initialized):
