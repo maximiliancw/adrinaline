@@ -340,3 +340,51 @@ def test_check_catches_bad_review_fields(initialized):
     assert len(bad_date_findings) > 0, "Expected bad-date finding for review-by"
     assert len(bad_field_findings) > 0, "Expected bad-field finding for revisit-if"
     assert "traceback" not in result.out and "Traceback" not in result.err
+
+
+def test_review_writes_reviewed_and_review_by(initialized):  # AC24
+    w = initialized
+    w.adr("new", "Use MySQL", "--accepted")
+    before = w.path_of(2).read_text(encoding="utf-8")
+    result = w.adr("review", "2", "--until", "2099-01-01", "--json")
+    assert result.code == 0, result.err
+    today = dt.date.today().isoformat()
+    assert result.json()["reviewed"] == today and result.json()["review-by"] == "2099-01-01"
+    after = w.path_of(2).read_text(encoding="utf-8")
+    assert f"reviewed: {today}\n" in after and "review-by: 2099-01-01\n" in after
+    assert after.split("---")[2] == before.split("---")[2]  # body untouched
+    assert "reviewed" in w.adr("review", "2").out  # human summary
+
+
+def test_review_rejects_a_bad_date_and_writes_nothing(initialized):  # AC24
+    w = initialized
+    w.adr("new", "Use MySQL", "--accepted")
+    before = w.path_of(2).read_text(encoding="utf-8")
+    result = w.adr("review", "2", "--until", "2099-13-01", "--json")
+    assert result.code == 3 and result.json()["error"]["code"] == "bad-date"
+    assert w.path_of(2).read_text(encoding="utf-8") == before
+
+
+def test_review_without_until_keeps_review_by(initialized):
+    w = initialized
+    w.write_adr(2, "x", review_by="2000-01-01")
+    assert w.adr("review", "2").code == 0
+    text = w.path_of(2).read_text(encoding="utf-8")
+    assert 'review-by: "2000-01-01"' in text and "reviewed:" in text
+
+
+def test_new_review_by(initialized):  # AC24
+    w = initialized
+    result = w.adr("new", "X", "--review-by", "2099-01-01", "--json")
+    assert result.code == 0 and result.json()["review-by"] == "2099-01-01"
+    assert "review-by: 2099-01-01" in w.path_of(2).read_text(encoding="utf-8")
+    bad = w.adr("new", "Y", "--review-by", "nope", "--json")
+    assert bad.code == 3 and bad.json()["error"]["code"] == "bad-date"
+    assert not list(w.adr_dir.glob("0003-*.md"))
+
+
+def test_show_prints_review_line(initialized):
+    w = initialized
+    w.write_adr(2, "x", review_by="2099-01-01", revisit_if="load doubles")
+    out = w.adr("show", "2").out
+    assert "review-by: 2099-01-01" in out and "revisit-if: load doubles" in out

@@ -56,6 +56,17 @@ def show_text(
         lines.append("tags: " + ", ".join(adr.tags))
     if adr.scope:
         lines.append("scope: " + ", ".join(adr.scope))
+    review = [
+        f"{key}: {value}"
+        for key, value in (
+            ("review-by", adr.review_by),
+            ("reviewed", adr.reviewed),
+            ("revisit-if", adr.revisit_if),
+        )
+        if value
+    ]
+    if review:
+        lines.append("   ".join(review))
     for name, numbers in relations.items():
         labels = [
             f"{n:04d} {by_number[n].title}" if n in by_number else f"{n:04d} (missing)"
@@ -112,6 +123,13 @@ def nonblank(value: str) -> str:
     return value
 
 
+def iso_date(value: str) -> dt.date:
+    try:
+        return dt.date.fromisoformat(value)
+    except ValueError as exc:
+        raise AdrError("bad-date", f"{value!r} is not an ISO date (YYYY-MM-DD)") from exc
+
+
 def cmd_new(ctx: Ctx) -> None:
     args, loc = ctx.args, ctx.loc
     if not loc.dir.is_dir():
@@ -142,6 +160,7 @@ def cmd_new(ctx: Ctx) -> None:
     for glob in args.scope:
         if glob.startswith("/") or ".." in Path(glob).parts:
             raise AdrError("bad-scope", f"scope glob must be repository-relative: {glob}")
+    review_by = iso_date(args.review_by) if args.review_by else None
     body = None
     if args.body_file == "-":
         body = sys.stdin.read()
@@ -152,7 +171,7 @@ def cmd_new(ctx: Ctx) -> None:
             raise AdrError("io", f"cannot read {args.body_file}: {exc}") from exc
     status = Status.ACCEPTED if args.accepted else Status.PROPOSED
     text = repo.render_new(
-        repo.template_text(loc), args.title, status, today(), body, args.tag, args.scope
+        repo.template_text(loc), args.title, status, today(), body, args.tag, args.scope, review_by
     )
     path = repo.create_file(loc.dir, number, repo.slugify(args.title), text)
     for n, ref in sorted(skipped.items()):
@@ -282,6 +301,15 @@ def cmd_index(ctx: Ctx) -> None:
         for a in adrs
     ]
     ctx.out.result([adr_dict(a, ctx.out) for a in adrs], "\n".join(rows))
+
+
+def cmd_review(ctx: Ctx) -> None:
+    adr = repo.resolve(ctx.load().adrs, ctx.args.ref)
+    until = iso_date(ctx.args.until) if ctx.args.until else None
+    repo.record_review(adr, today(), until)
+    repo.save(adr)
+    tail = f", review-by {adr.review_by}" if adr.review_by else ""
+    ctx.out.result(adr_dict(adr, ctx.out), f"{adr.id} {adr.title}: reviewed {adr.reviewed}{tail}")
 
 
 def _set_status(to: Status) -> Callable[[Ctx], None]:
@@ -440,6 +468,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--accepted", action="store_true", help="create as accepted")
     p.add_argument("--tag", action="append", default=[])
     p.add_argument("--scope", action="append", default=[], help="repository-relative glob")
+    p.add_argument("--review-by", metavar="DATE", help="when to revisit the decision (YYYY-MM-DD)")
     p.add_argument("--body-file", metavar="PATH", help="body below the title ('-' = stdin)")
     p.add_argument("--edit", action="store_true", help="open $VISUAL/$EDITOR afterwards")
     for relation in ("supersedes", *LINKABLE):
@@ -464,6 +493,10 @@ def build_parser() -> argparse.ArgumentParser:
         p = add(name, _set_status(to), f"mark an ADR as {to}")
         p.add_argument("ref")
         p.add_argument("--force", action="store_true", help="allow any transition (repairs)")
+
+    p = add("review", cmd_review, "record that an ADR was reviewed today")
+    p.add_argument("ref")
+    p.add_argument("--until", metavar="DATE", help="also set review-by to DATE (YYYY-MM-DD)")
 
     p = add("check", cmd_check, "validate all ADRs", reads_=True)
     p.add_argument("--strict", action="store_true", help="fail on warnings too")
