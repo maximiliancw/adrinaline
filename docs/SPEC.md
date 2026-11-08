@@ -372,7 +372,7 @@ empty for set-wide findings) and a `message`.
 | 0 | Success |
 | 1 | `check` found problems |
 | 2 | Usage error (argparse) |
-| 3 | Domain error, reported as an error envelope (`not-found`, `ambiguous`, `invalid-transition`, `cycle`, `self-relation`, `no-adr-dir`, `exists`, `no-git`, `bad-revision`, `bad-scope`, `bad-config`, `bad-template`, `io`, or a §11 parse code such as `no-title` when `new --edit` re-reads the edited file) |
+| 3 | Domain error, reported as an error envelope (`not-found`, `ambiguous`, `invalid-transition`, `cycle`, `self-relation`, `no-adr-dir`, `exists`, `no-git`, `bad-revision`, `bad-scope`, `bad-config`, `bad-template`, `bad-filename`, `bad-relation`, `io`, or a §11 parse code such as `no-title` when `new --edit` re-reads the edited file) |
 
 ### `adr prime`
 
