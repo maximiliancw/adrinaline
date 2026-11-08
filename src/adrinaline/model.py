@@ -10,7 +10,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from ruamel.yaml.comments import CommentedMap
 
-from adrinaline.frontmatter import FrontmatterError, split
+from adrinaline.frontmatter import FrontmatterDateError, FrontmatterError, split
 
 FILENAME_RE = re.compile(r"^(\d{4,})-([a-z0-9]+(?:-[a-z0-9]+)*)\.md$")
 
@@ -134,11 +134,9 @@ def parse_adr(path: Path, text: str) -> Adr:
         raise AdrError("bad-filename", f"{path.name}: expected NNNN-slug.md", path=str(path))
     try:
         meta, body = split(text)
+    except FrontmatterDateError as exc:
+        raise AdrError("bad-date", f"{path.name}: {exc}", path=str(path)) from exc
     except FrontmatterError as exc:
-        # Check if this is a date parsing error
-        error_str = str(exc)
-        if "month" in error_str or "day" in error_str or "year" in error_str:
-            raise AdrError("bad-date", f"{path.name}: {exc}", path=str(path)) from exc
         raise AdrError("no-frontmatter", f"{path.name}: {exc}", path=str(path)) from exc
     try:
         front = Frontmatter.model_validate(dict(meta))

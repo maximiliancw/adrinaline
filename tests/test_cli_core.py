@@ -321,3 +321,22 @@ def test_show_json_carries_review_keys(initialized):
     data = initialized.adr("show", "1", "--json").json()
     assert (data["review-by"], data["reviewed"], data["revisit-if"]) == (None, None, None)
     assert "review-by" not in data["meta"]
+
+
+def test_check_catches_bad_review_fields(initialized):
+    # Create ADR with invalid review-by date
+    initialized.write_adr(2, "bad-review-by", review_by="2026-13-01")
+    # Create ADR with invalid revisit-if type
+    initialized.write_adr(3, "bad-revisit-if", revisit_if=3)
+
+    result = initialized.adr("check", "--json")
+    findings = result.json()["findings"]
+
+    # Find findings related to review fields
+    bad_date_findings = [f for f in findings if f["code"] == "bad-date"]
+    bad_field_findings = [f for f in findings if f["code"] == "bad-field"]
+
+    # Verify findings exist without traceback
+    assert len(bad_date_findings) > 0, "Expected bad-date finding for review-by"
+    assert len(bad_field_findings) > 0, "Expected bad-field finding for revisit-if"
+    assert "traceback" not in result.out and "Traceback" not in result.err
