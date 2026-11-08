@@ -100,3 +100,13 @@ def test_bad_review_values(front, code):
     with pytest.raises(AdrError) as exc:
         _adr(front)
     assert exc.value.code == code
+
+
+def test_yaml_with_day_in_text_is_not_date_error():
+    # Verify that invalid YAML containing "day" is still reported as no-frontmatter, not bad-date
+    with pytest.raises(AdrError) as exc:
+        parse_adr(
+            P,
+            "---\nstatus: accepted\ndate: 2026-01-15\nbad_yaml: [unclosed day\n---\n# X\n",
+        )
+    assert exc.value.code == "no-frontmatter"

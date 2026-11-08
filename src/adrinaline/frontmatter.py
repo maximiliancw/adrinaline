@@ -12,6 +12,10 @@ class FrontmatterError(ValueError):
     """The file has no valid YAML frontmatter mapping."""
 
 
+class FrontmatterDateError(FrontmatterError):
+    """A date field in the frontmatter could not be parsed."""
+
+
 def _yaml() -> YAML:
     yaml = YAML()  # round-trip mode: keeps comments, key order and quoting
     yaml.preserve_quotes = True
@@ -28,7 +32,9 @@ def split(text: str) -> tuple[CommentedMap, str]:
         if line.rstrip("\r\n") == "---":
             try:
                 data = _yaml().load("".join(lines[1:end]))
-            except (YAMLError, ValueError) as exc:
+            except ValueError as exc:
+                raise FrontmatterDateError(f"invalid YAML: {exc}") from exc
+            except YAMLError as exc:
                 raise FrontmatterError(f"invalid YAML: {exc}") from exc
             if data is None:
                 data = CommentedMap()
