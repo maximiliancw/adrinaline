@@ -12,5 +12,6 @@ def test_skill_and_prime_rules_share_the_workflow():
         "proposed",
         "adr check",
         "adr accept N",
+        "adr review N",
     ):
         assert phrase in skill and phrase in RULES, phrase

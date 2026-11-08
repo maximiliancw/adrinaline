@@ -13,7 +13,7 @@ ADRs are Markdown files in the repository (usually `docs/adr/NNNN-slug.md`) with
 
 ## At the start of a task
 
-1. Run `adr prime` to see the decisions in force. Its sections: decisions in force, proposed ADRs, and short usage rules.
+1. Run `adr prime` to see the decisions in force. Its sections: decisions in force, a *Needs review* list when a decision is overdue or its code has churned, proposed ADRs, and short usage rules.
 2. Before editing a file, run `adr for <path>` and follow the ADRs it lists. Use `adr show N` to read a whole decision.
 3. If a command fails with `no-adr-dir` (exit 3), ask the user before running `adr init`.
 
@@ -77,6 +77,10 @@ Never rewrite the decision of an accepted ADR. Instead:
 * Replace it: `adr new "…" --supersedes N`
 * Change part of it: `adr new "…" --amends N`
 * Relations: `supersedes`, `amends`, `depends-on`, `relates-to`. Add one later with `adr link SRC RELATION DST` (RELATION is `amends`, `depends-on` or `relates-to`), e.g. `adr link NEW depends-on N`.
+
+## Reviewing a decision
+
+`adr prime` and `adr check` report `review-overdue` (its `review-by` date has passed) and `stale-decision` (many commits touched its `scope` since it was written or last reviewed; `adr drift` shows the numbers). Read the ADR and the code in its scope, tell the human whether the decision and its `revisit-if` assumption still hold, and only on their confirmation run `adr review N --until YYYY-MM-DD`. Never record a review you did not do. When writing an ADR, `--review-by YYYY-MM-DD` sets the first review date.
 
 ## Before finishing
 
