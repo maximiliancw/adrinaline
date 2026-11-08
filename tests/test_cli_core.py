@@ -264,6 +264,28 @@ def test_blank_title_is_usage_error(initialized):
     assert not list(initialized.adr_dir.glob("0002-*.md"))
 
 
+@pytest.mark.parametrize("relation", ["depends-on", "supersedes"])
+def test_new_cycle_writes_nothing(initialized, relation):
+    first = next(initialized.adr_dir.glob("0001-*.md"))
+    before = first.read_text(encoding="utf-8").replace("---\n", f"---\n{relation}: [2]\n", 1)
+    first.write_text(before, encoding="utf-8")
+    result = initialized.adr("new", "X", f"--{relation}", "1", "--json")
+    assert result.code == 3
+    assert result.json()["error"]["code"] == "cycle"
+    assert not list(initialized.adr_dir.glob("0002-*.md"))
+    assert first.read_text(encoding="utf-8") == before
+
+
+def test_new_cycle_check_skips_misnamed_number(initialized):
+    first = next(initialized.adr_dir.glob("0001-*.md"))
+    text = first.read_text(encoding="utf-8").replace("---\n", "---\ndepends-on: [3]\n", 1)
+    first.write_text(text, encoding="utf-8")
+    (initialized.adr_dir / "0002-Bad.md").write_text("stray", encoding="utf-8")
+    result = initialized.adr("new", "Y", "--depends-on", "1", "--json")
+    assert result.json()["error"]["code"] == "cycle"
+    assert not list(initialized.adr_dir.glob("0003-*.md"))
+
+
 def test_blank_ref_is_not_found(initialized):
     result = initialized.adr("show", " ", "--json")
     assert result.code == 3

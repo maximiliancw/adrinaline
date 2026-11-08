@@ -118,6 +118,7 @@ def cmd_new(ctx: Ctx) -> None:
         raise repo.no_dir(loc)
     wanted = {r: getattr(args, r.replace("-", "_")) for r in ("supersedes", *LINKABLE)}
     targets: dict[str, list[Adr]] = {}
+    number, skipped = repo.next_number(loc)
     if any(wanted.values()):
         adrs = ctx.load().adrs
         targets = {
@@ -132,6 +133,12 @@ def cmd_new(ctx: Ctx) -> None:
                     current=old.status.value,
                     requested=Status.SUPERSEDED.value,
                 )
+        # Refuse a cycle before anything is written. ponytail: a concurrent `new` can make
+        # create_file pick a later number; link/supersede re-check it, the file stays.
+        graph = AdrGraph(adrs)
+        for relation, dsts in targets.items():
+            for dst in dsts:
+                repo.check_acyclic(graph, relation, number, dst.number)
     for glob in args.scope:
         if glob.startswith("/") or ".." in Path(glob).parts:
             raise AdrError("bad-scope", f"scope glob must be repository-relative: {glob}")
@@ -147,7 +154,6 @@ def cmd_new(ctx: Ctx) -> None:
     text = repo.render_new(
         repo.template_text(loc), args.title, status, today(), body, args.tag, args.scope
     )
-    number, skipped = repo.next_number(loc)
     path = repo.create_file(loc.dir, number, repo.slugify(args.title), text)
     for n, ref in sorted(skipped.items()):
         ctx.out.note(f"skipped {n:04d}, taken on {ref}")
