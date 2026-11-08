@@ -1,0 +1,7 @@
+- id: adr-check
+  name: adr check
+  description: Validate Architecture Decision Records
+  entry: adr check --strict
+  language: python
+  pass_filenames: false
+  files: ^docs/adr/

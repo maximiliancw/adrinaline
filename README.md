@@ -161,7 +161,19 @@ adr check --diff origin/main --strict      # CI gate: changed files governed by 
 - run: uvx adrinaline check --diff origin/main --strict
 ```
 
-Exit codes: `0` success, `1` `check` found problems, `2` usage error, `3` domain error (for example `not-found` or `no-adr-dir`).
+### pre-commit
+
+```yaml
+repos:
+  - repo: https://github.com/maximiliancw/adrinaline
+    rev: vX.Y.Z  # a release tag that contains .pre-commit-hooks.yaml
+    hooks:
+      - id: adr-check
+```
+
+The hook runs `adr check --strict` when files under `docs/adr/` change; override `files` if your ADRs live elsewhere. The hook installs adrinaline, which needs Python 3.14 on `PATH`.
+
+Exit codes and error codes: [CLI reference](https://maximiliancw.github.io/adrinaline/cli/).
 
 ## History
 
