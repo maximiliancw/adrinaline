@@ -26,6 +26,9 @@ agents both read reliably.
 - G8: ADRs connect to code and history: `scope` globs tie decisions to files
   (`adr for`, `adr check --diff`), and every read command works against any
   git revision (`--at REF`).
+- G9: Decision health is measurable: review dates and churn over an ADR's
+  `scope` show which decisions are overdue or stale (`adr drift`,
+  `adr review`, `check` warnings), deterministically and from git alone.
 
 ### Non-goals (v1)
 
@@ -83,6 +86,7 @@ src/adrinaline/
                    traversal, cycles, rank (PageRank), scope matching,
                    renderers (text, mermaid, dot, json)
   prime.py         briefing: scoring and budgeted selection
+  drift.py         decision health: churn per ADR since its baseline, review findings
   check.py         validation rules returning Finding objects
   git.py           thin wrappers over the `git` executable (read-only)
   output.py        human vs JSON rendering, error envelope, exit codes
@@ -127,6 +131,9 @@ consulted: []               # MADR, optional
 informed: []                # MADR, optional
 tags: [storage]             # optional
 scope: ["src/db/**"]        # optional, globs relative to the repository root
+review-by: YYYY-MM-DD       # optional, when the decision should be revisited
+reviewed: YYYY-MM-DD        # optional, date of the last review (`adr review`)
+revisit-if: "…"             # optional, the assumption that would invalidate it
 supersedes: []              # relations, optional, lists of ADR numbers
 superseded-by: []           # the only stored inverse (see §8)
 amends: []
@@ -137,6 +144,9 @@ relates-to: []
 
 - Relation values are integers (`[3, 7]`). Empty relation keys are omitted when
   the tool writes a file.
+- `review-by` and `reviewed` are ISO dates (`bad-date` otherwise); `revisit-if`
+  is a string (`bad-field` otherwise). All three are absent unless set by hand,
+  `adr new --review-by` or `adr review`.
 - Unknown keys are preserved on rewrite and ignored otherwise.
 - The title is the first `# ` heading of the body. It is required.
 
@@ -199,8 +209,10 @@ by steps 1–3, else `<git root or cwd>/docs/adr`.
 
 The configuration file found in step 2 (`.adrinaline.toml` or
 `[tool.adrinaline]`) may also set `template` (path to the template, relative
-to that file, default `<dir>/.template.md`). There is no other configuration.
-An unreadable or mistyped configuration fails with `bad-config`.
+to that file, default `<dir>/.template.md`) and `drift-commits` (integer,
+default `0`: the churn at which `check` reports `stale-decision`, §11; `0`
+disables the warning). There is no other configuration. An unreadable or
+mistyped configuration fails with `bad-config`.
 
 ## 6. ADR references
 
@@ -270,6 +282,13 @@ stdlib `graphlib`. Derived views:
 - **Governing ADRs of a path:** ADRs in force whose `scope` contains a glob
   matching the path (`PurePath.full_match`, repository-relative, POSIX
   separators).
+- **Drift of an ADR:** its baseline is the later of `date` and `reviewed`; its
+  churn is the set of non-merge commits with a committer date after the
+  baseline date (a later day, so a review today clears today's commits) that
+  touched at least one file matching its `scope` (same matching as above).
+  One `git log --since=<earliest baseline> --name-only --no-merges` call over
+  the whole repository serves every ADR; with `--at REF` the log starts at REF
+  instead of `HEAD`. ADRs without a `scope` have no drift.
 
 ### Revisions (`--at REF`)
 
@@ -290,13 +309,15 @@ Global flags: `--json` (machine output), `--dir PATH` (overrides §5),
 | Command | Effect |
 |---|---|
 | `adr init [--force]` | Create the ADR dir, `.template.md` and `0001-record-architecture-decisions.md` (status `accepted`). Idempotent: existing files are left alone unless `--force`. |
-| `adr new TITLE [--accepted] [--force] [--tag T]... [--scope GLOB]... [--supersedes REF]... [--amends REF]... [--depends-on REF]... [--relates-to REF]... [--body-file PATH\|-] [--edit]` | Allocate the next number (§10), render the template, write the file, apply relations. `--body-file` replaces the template body below the title (`-` reads stdin). `--edit` opens `$VISUAL`/`$EDITOR` afterwards. `--scope` sets a repository-relative glob in the `scope` list; absolute or `..` globs fail with `bad-scope` before any file is written. `--force` lets `--supersedes` target an ADR that is not `accepted`. Prints the new path. |
-| `adr show REF [--raw]` | Show one ADR: metadata, resolved relation titles, body. `--raw` prints the file verbatim. |
+| `adr new TITLE [--accepted] [--force] [--tag T]... [--scope GLOB]... [--review-by DATE] [--supersedes REF]... [--amends REF]... [--depends-on REF]... [--relates-to REF]... [--body-file PATH\|-] [--edit]` | Allocate the next number (§10), render the template, write the file, apply relations. `--body-file` replaces the template body below the title (`-` reads stdin). `--edit` opens `$VISUAL`/`$EDITOR` afterwards. `--scope` sets a repository-relative glob in the `scope` list; absolute or `..` globs fail with `bad-scope` before any file is written. `--review-by` sets the review date (`bad-date` if not ISO). `--force` lets `--supersedes` target an ADR that is not `accepted`. Prints the new path. |
+| `adr show REF [--raw]` | Show one ADR: metadata (including the review line: `review-by`, `reviewed`, `revisit-if` when set), resolved relation titles, body. `--raw` prints the file verbatim. |
 | `adr list [--status S]... [--tag T]...` | One line per ADR, ordered by number: number, status, date, title. |
 | `adr index` | Print a Markdown table (number with link, title, status, date) for pasting into docs. |
 | `adr accept REF [--force]`, `adr reject REF [--force]`, `adr deprecate REF [--force]` | Status transitions (§7); `--force` allows any transition. |
 | `adr supersede OLD --by NEW [--force]` | Add `NEW supersedes OLD`, mark OLD `superseded`. `--force` allows an OLD that is not `accepted`. |
 | `adr link REF RELATION REF` / `adr unlink REF RELATION REF` | Add/remove `amends`, `depends-on` or `relates-to` on the first ADR only (§8). |
+| `adr review REF [--until DATE]` | Record a review: set `reviewed` to today and, with `--until`, `review-by` to DATE (`bad-date` if not ISO). Any status. Prints the ADR by number and title with its review date; `--json` prints the ADR object. |
+| `adr drift [REF]...` | Churn per ADR in force that has a `scope` (§8), or only for the given REFs: one line per ADR, highest churn first: number, title, commits and distinct files since the baseline, and the date and subject of the last commit. A closing line counts the ADRs in force without a `scope` (omitted when there are none). `--json` is a list of `{"number", "id", "title", "baseline", "review-by", "revisit-if", "commits", "files": [...], "last": {"commit", "date", "subject"} \| null}`. Fails with `no-git` outside a repository. |
 | `adr graph [REF] [--relation R]... [--depth N] [--reverse] [--rank] [--format text\|mermaid\|dot\|json]` | Render the graph: the whole set, or the subgraph reachable from REF (`--reverse` follows inverse edges, by default only `depends-on` and `amends`, giving the impact set). `text` (default) is an indented, deduplicated tree; `mermaid` renders in GitHub/GitLab Markdown; `dot` feeds Graphviz; `json` is `{"nodes": [{"number", "id", "slug", "title", "status", "date", "tags", "path"}], "edges": [{"from", "to", "relation"}]}`. Node styling encodes status in mermaid and dot. `--rank` orders the nodes by rank: text output becomes a flat list, one `rank  NNNN title [status]` line per node, and JSON nodes gain a `rank` value; `--rank` with `mermaid` or `dot` is a usage error unless `--json` is given. |
 | `adr check [--strict] [--diff REF]` | Validate the set (§11). Exit 1 if any error (or any warning with `--strict`). `--diff REF` also reports every changed file (`git diff --name-only REF`, plus untracked files) governed by an ADR in force, as `scoped-change` findings naming the ADRs to review. CI gate: `adr check --diff origin/main --strict`. |
 | `adr for PATH... [--all]` | List the ADRs in force that govern each path (§8). `--all` includes `proposed`. |
@@ -307,8 +328,8 @@ Global flags: `--json` (machine output), `--dir PATH` (overrides §5),
 
 Every mutating command prints a short summary of what changed in human mode:
 the written paths (`init`, `new`, `unlink`, `renumber`) or the affected ADRs
-by number, with titles for `accept`, `reject`, `deprecate` and `supersede`
-(`link` prints numbers only). With `--json` it prints the changed ADRs or
+by number, with titles for `accept`, `reject`, `deprecate`, `supersede` and
+`review` (`link` prints numbers only). With `--json` it prints the changed ADRs or
 paths as one JSON document.
 
 ## 10. Number allocation and collisions
@@ -335,7 +356,7 @@ empty for set-wide findings) and a `message`.
 | `missing-field` | error | `status` or `date` missing |
 | `bad-field` | error | A known key has the wrong type (for example a relation that is not a list of numbers) |
 | `bad-status` | error | Status not in the allowed set |
-| `bad-date` | error | `date` not an ISO date |
+| `bad-date` | error | `date`, `review-by` or `reviewed` not an ISO date |
 | `no-title` | error | No `# ` heading |
 | `duplicate-number` | error | Two files share a number |
 | `dangling-relation` | error | Relation points to a non-existent number |
@@ -346,9 +367,11 @@ empty for set-wide findings) and a `message`.
 | `number-gap` | warning | A number between 1 and the maximum is missing and not present on any local branch or remote-tracking ref (§10; refs are not consulted with `--at`) |
 | `no-template` | warning | `.template.md` missing |
 | `bad-scope` | error | `scope` is not a list of relative glob strings |
-| `unknown-relation-key` | warning | Frontmatter uses a snake_case relation key (`superseded_by`, `depends_on`, `relates_to`, `amended_by`, `dependency_of`); the hyphenated key is meant |
+| `unknown-relation-key` | warning | Frontmatter uses a snake_case key (`superseded_by`, `depends_on`, `relates_to`, `amended_by`, `dependency_of`, `review_by`, `revisit_if`); the hyphenated key is meant |
 | `scope-matches-nothing` | warning | A `scope` glob matches no tracked or untracked, non-ignored file (`git ls-files --cached --others --exclude-standard`; with `--at`, the files at that revision) |
 | `scoped-change` | warning | With `--diff` only: a changed file is governed by an ADR in force |
+| `review-overdue` | warning | An ADR in force has a `review-by` before today; the message names the date and `adr review N` |
+| `stale-decision` | warning | Only when `drift-commits` (§5) is above 0 and there is a git repository: an ADR in force has churn (§8) of at least `drift-commits` commits; the message names the count, the baseline and `adr review N` |
 
 `adr check --fix` is not in v1.
 
@@ -360,7 +383,8 @@ empty for set-wide findings) and a `message`.
   printed to stdout. Diagnostics go to stderr.
 - ADR object: `{"number": 7, "id": "0007", "slug": "…", "title": "…",
   "status": "…", "date": "YYYY-MM-DD", "path": "docs/adr/0007-….md",
-  "tags": [], "scope": [], "relations": {"supersedes": [3], …}, "meta": {…other keys}}`.
+  "tags": [], "scope": [], "review-by": "YYYY-MM-DD" | null, "reviewed": "YYYY-MM-DD" | null,
+  "revisit-if": "…" | null, "relations": {"supersedes": [3], …}, "meta": {…other keys}}`.
   `show` adds `"body"`.
 - Lists are JSON arrays. `check` returns `{"ok": bool, "findings": […]}`.
 - Errors: `{"error": {"code": "not-found", "message": "…", "details": {…}}}`.
@@ -381,12 +405,15 @@ Prints a compact briefing in Markdown (JSON with `--json`):
 1. Where the ADRs live and how many exist per status.
 2. A one-line-per-ADR list of the ADRs in force (§8; number, title, tags),
    with their `depends-on`/`amends` edges inline.
-3. Open `proposed` ADRs.
-4. A command cheat sheet and the rules: when to write an ADR, never edit an
-   accepted ADR's decision (supersede or amend instead), run `adr check` before
-   finishing.
+3. Needs review: one line per ADR in force that is `review-overdue` or
+   `stale-decision` (§11; the same conditions and config as `check`), naming
+   the reason and `adr review N`. Omitted when empty.
+4. Open `proposed` ADRs.
+5. A command cheat sheet and the rules: when to write an ADR, never edit an
+   accepted ADR's decision (supersede or amend instead), run `adr review N`
+   after revisiting a decision, run `adr check` before finishing.
 
-With `--budget N`, sections 1, 3 and 4 are always printed in full; section 2
+With `--budget N`, sections 1, 3, 4 and 5 are always printed in full; section 2
 is limited to about N words and filled with ADRs in force in descending
 score. The top-scored ADR is always shown, even if its line alone exceeds N:
 
@@ -407,8 +434,8 @@ session start") or a session-start hook.
 
 `data/SKILL.md` follows the Agent Skills format (name, description,
 instructions). It tells agents when a decision deserves an ADR, how to write
-one with `adr new --body-file -`, and how to supersede or amend. `adr skill`
-prints it.
+one with `adr new --body-file -`, how to supersede or amend, and how to record
+a review with `adr review`. `adr skill` prints it.
 
 ## 13. Git integration (read-only)
 
@@ -418,8 +445,9 @@ cross-branch allocation, `adr log` fails with `no-git`).
 
 Used for: repository root (`git rev-parse --show-toplevel`), default
 `decision-makers` entry on `init` (`git config user.name`, omitted if unset),
-cross-branch numbers (§10), `adr log`. Never: `add`, `commit`, `fetch`,
-`checkout`, or any other command that writes.
+cross-branch numbers (§10), `adr log`, drift (§8: `adr drift`,
+`stale-decision`, `adr prime`). Never: `add`, `commit`, `fetch`, `checkout`,
+or any other command that writes.
 
 ## 14. `adr init` content
 
@@ -501,3 +529,22 @@ Each criterion is an automated test.
 23. `adr prime --budget 150` on a 30-ADR fixture prints at most 150 words of
     ADR entries (unless the top-scored entry alone is longer), always includes
     the top-scored ADR, and ends with the left-out count.
+24. `adr review 2 --until 2099-01-01` writes `reviewed: <today>` and
+    `review-by: 2099-01-01` to 0002 and changes nothing else; `adr review 2
+    --until 2099-13-01` exits 3 with `bad-date` and writes nothing;
+    `adr new "X" --review-by 2099-01-01` writes `review-by`.
+25. An ADR in force with `review-by` in the past makes `adr check` report
+    `review-overdue` and exit 0 (1 with `--strict`); a `proposed` or
+    `superseded` ADR with the same date does not.
+26. On a fixture where 0002 has `scope: ["src/db/**"]`, two commits after its
+    `date` touch `src/db/` and one touches `src/other/`, `adr drift --json`
+    reports `commits: 2` for 0002 with both files; after `adr review 2` and a
+    commit, `adr drift` reports 0; `adr drift --at HEAD~1` reports the earlier
+    state; an ADR without `scope` is not listed and is counted in the closing
+    line.
+27. With `drift-commits = 2` in `.adrinaline.toml`, the fixture of 26 makes
+    `adr check` report `stale-decision` for 0002 naming the count; without the
+    key, and with `drift-commits = 3`, it does not.
+28. `adr prime` on the fixtures of 25 and 27 prints a "Needs review" section
+    naming both ADRs and their repair command; without them the section is
+    absent and `--budget` output is unchanged.
