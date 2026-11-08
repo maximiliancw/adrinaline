@@ -272,12 +272,19 @@ def next_number(loc: Location) -> tuple[int, dict[int, str]]:
     top = max(numbers_in(loc.dir), default=0)
     remote = git.numbers_on_refs(loc.root, loc.dir) if loc.root else {}
     skipped = {n: ref for n, ref in remote.items() if n > top}
-    return max([top, *skipped]) + 1, skipped
+    number = max([top, *skipped]) + 1
+    while _taken(loc.dir, number):  # a misnamed NNNN-*.md file holds its number too
+        number += 1
+    return number, skipped
+
+
+def _taken(directory: Path, number: int) -> bool:
+    return any(directory.glob(f"{number:04d}-*.md"))
 
 
 def create_file(directory: Path, number: int, slug: str, text: str) -> Path:
     while True:
-        if not any(directory.glob(f"{number:04d}-*.md")):
+        if not _taken(directory, number):
             path = directory / f"{number:04d}-{slug}.md"
             try:
                 with path.open("x", encoding="utf-8", newline="") as handle:
@@ -288,9 +295,10 @@ def create_file(directory: Path, number: int, slug: str, text: str) -> Path:
         number += 1
 
 
-def _cycle_error(relation: str, cycle: list[int]) -> AdrError:
-    path = " -> ".join(f"{n:04d}" for n in cycle)
-    return AdrError("cycle", f"this would create a {relation} cycle: {path}", cycle=cycle)
+def check_acyclic(graph: AdrGraph, relation: str, src: int, dst: int) -> None:
+    if relation in ACYCLIC and (cycle := graph.cycle(relation, Edge(src, dst, relation))):
+        path = " -> ".join(f"{n:04d}" for n in cycle)
+        raise AdrError("cycle", f"this would create a {relation} cycle: {path}", cycle=cycle)
 
 
 def supersede(graph: AdrGraph, old: Adr, new: Adr, *, force: bool, today: dt.date) -> None:
@@ -304,8 +312,7 @@ def supersede(graph: AdrGraph, old: Adr, new: Adr, *, force: bool, today: dt.dat
             current=old.status.value,
             requested=Status.SUPERSEDED.value,
         )
-    if cycle := graph.cycle("supersedes", Edge(new.number, old.number, "supersedes")):
-        raise _cycle_error("supersedes", cycle)
+    check_acyclic(graph, "supersedes", new.number, old.number)
     set_relation(new, "supersedes", [*new.relations["supersedes"], old.number])
     set_relation(old, "superseded-by", [*old.relations["superseded-by"], new.number])
     set_status(old, Status.SUPERSEDED, today)
@@ -318,10 +325,7 @@ def link(graph: AdrGraph, src: Adr, relation: str, dst: Adr) -> bool:
         raise AdrError("bad-relation", f"cannot link with {relation!r}; use one of {LINKABLE}")
     if src.number == dst.number:
         raise AdrError("self-relation", f"{src.id} cannot {relation} itself")
-    if relation in ACYCLIC and (
-        cycle := graph.cycle(relation, Edge(src.number, dst.number, relation))
-    ):
-        raise _cycle_error(relation, cycle)
+    check_acyclic(graph, relation, src.number, dst.number)
     if dst.number in src.relations[relation]:
         return False
     if relation == "relates-to" and src.number in dst.relations["relates-to"]:
