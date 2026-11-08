@@ -1,3 +1,4 @@
+import datetime as dt
 from pathlib import Path
 
 import pytest
@@ -61,3 +62,41 @@ def test_no_frontmatter():
     with pytest.raises(AdrError) as exc:
         parse_adr(P, "# T\n")
     assert exc.value.code == "no-frontmatter"
+
+
+def _adr(front: str):
+    return parse_adr(
+        Path("0002-x.md"), f"---\nstatus: accepted\ndate: 2026-01-15\n{front}---\n# X\n"
+    )
+
+
+def test_review_keys_are_parsed():
+    adr = _adr('review-by: 2027-01-01\nreviewed: 2026-06-01\nrevisit-if: "Postgres 18 ships"\n')
+    assert adr.review_by == dt.date(2027, 1, 1)
+    assert adr.reviewed == dt.date(2026, 6, 1)
+    assert adr.revisit_if == "Postgres 18 ships"
+
+
+def test_review_keys_default_to_none():
+    adr = _adr("")
+    assert (adr.review_by, adr.reviewed, adr.revisit_if) == (None, None, None)
+    assert adr.baseline == dt.date(2026, 1, 15)
+
+
+def test_baseline_is_the_later_date():
+    assert _adr("reviewed: 2026-06-01\n").baseline == dt.date(2026, 6, 1)
+    assert _adr("reviewed: 2025-06-01\n").baseline == dt.date(2026, 1, 15)  # never backwards
+
+
+@pytest.mark.parametrize(
+    ("front", "code"),
+    [
+        ("review-by: 2026-13-01\n", "bad-date"),
+        ("reviewed: soon\n", "bad-date"),
+        ("revisit-if: 3\n", "bad-field"),
+    ],
+)
+def test_bad_review_values(front, code):
+    with pytest.raises(AdrError) as exc:
+        _adr(front)
+    assert exc.value.code == code

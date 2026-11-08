@@ -7,7 +7,15 @@ from adrinaline.graph import ACYCLIC, AdrGraph
 from adrinaline.model import STORED_RELATIONS, Finding, Status
 from adrinaline.repo import AdrSet
 
-SNAKE_KEYS = {"superseded_by", "depends_on", "relates_to", "amended_by", "dependency_of"}
+SNAKE_KEYS = {
+    "superseded_by",
+    "depends_on",
+    "relates_to",
+    "amended_by",
+    "dependency_of",
+    "review_by",
+    "revisit_if",
+}
 
 
 def _duplicates(s: AdrSet) -> list[Finding]:

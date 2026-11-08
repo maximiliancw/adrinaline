@@ -28,7 +28,7 @@ def split(text: str) -> tuple[CommentedMap, str]:
         if line.rstrip("\r\n") == "---":
             try:
                 data = _yaml().load("".join(lines[1:end]))
-            except YAMLError as exc:
+            except (YAMLError, ValueError) as exc:
                 raise FrontmatterError(f"invalid YAML: {exc}") from exc
             if data is None:
                 data = CommentedMap()
