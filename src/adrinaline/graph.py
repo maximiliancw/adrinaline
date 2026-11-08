@@ -1,9 +1,10 @@
 """In-memory ADR graph: typed edges, derived inverses, traversal and rendering."""
 
 from collections import defaultdict, deque
+from collections.abc import Callable
 from dataclasses import dataclass
 from graphlib import CycleError, TopologicalSorter
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 
 from adrinaline.model import INVERSE, Adr, Status
 
@@ -237,6 +238,7 @@ def graph_data(
     nodes: list[int],
     edges: list[Edge],
     ranks: dict[int, float] | None = None,
+    rel: Callable[[Path], str] = str,
 ) -> dict:
     node_rows = []
     for n in nodes:
@@ -244,8 +246,12 @@ def graph_data(
         row = {
             "number": n,
             "id": f"{n:04d}",
+            "slug": adr.slug if adr else None,
             "title": adr.title if adr else None,
             "status": graph.status(n),
+            "date": adr.date.isoformat() if adr else None,
+            "tags": list(adr.tags) if adr else [],
+            "path": rel(adr.path) if adr else None,
         }
         if ranks is not None:
             row["rank"] = ranks.get(n, 0.0)

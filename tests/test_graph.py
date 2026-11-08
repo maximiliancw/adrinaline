@@ -112,17 +112,32 @@ def test_quotes_in_titles_are_escaped():
 
 def test_graph_data():
     g = sample()
-    data = graph_data(g, [1, 9], [Edge(1, 9, "depends-on")], {1: 0.5})
+    data = graph_data(g, [1, 9], [Edge(1, 9, "depends-on")], {1: 0.5}, lambda p: p.name)
+    one = g.nodes[1]
     assert data == {
         "nodes": [
             {
                 "number": 1,
                 "id": "0001",
+                "slug": one.slug,
                 "title": "Record decisions",
                 "status": "accepted",
+                "date": one.date.isoformat(),
+                "tags": list(one.tags),
+                "path": one.path.name,
                 "rank": 0.5,
             },
-            {"number": 9, "id": "0009", "title": None, "status": "missing", "rank": 0.0},
+            {
+                "number": 9,
+                "id": "0009",
+                "slug": None,
+                "title": None,
+                "status": "missing",
+                "date": None,
+                "tags": [],
+                "path": None,
+                "rank": 0.0,
+            },
         ],
         "edges": [{"from": 1, "to": 9, "relation": "depends-on"}],
     }
