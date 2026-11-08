@@ -426,7 +426,10 @@ def cmd_prime(ctx: Ctx) -> None:
     root = ctx.loc.root
     at = getattr(ctx.args, "at", None)
     changed = git.working_changes(root) if root and at is None else []
-    b = prime.briefing(graph, ctx.out.rel(ctx.loc.dir), changed, ctx.args.budget)
+    in_force = graph.in_force()
+    drifts = drift.compute(in_force, _commits(ctx, in_force))
+    review = drift.review_findings(in_force, drifts, today(), ctx.loc.drift_commits)
+    b = prime.briefing(graph, ctx.out.rel(ctx.loc.dir), changed, ctx.args.budget, review)
 
     def rows(adrs: list[Adr]) -> list[dict]:
         return [adr_dict(a, ctx.out, relations=graph.related(a.number)) for a in adrs]
@@ -436,6 +439,7 @@ def cmd_prime(ctx: Ctx) -> None:
         "counts": b.counts,
         "in_force": rows(b.shown),
         "omitted": b.omitted,
+        "needs_review": [asdict(f) | {"path": ctx.out.rel(Path(f.path))} for f in b.review],
         "proposed": rows(b.proposed),
         "rules": prime.RULES,
     }

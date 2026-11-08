@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import PurePosixPath
 
 from adrinaline.graph import AdrGraph
-from adrinaline.model import Adr, Status
+from adrinaline.model import Adr, Finding, Status
 
 RULES = """\
 - Before changing code, run `adr for <path>` and follow the ADRs it lists.
@@ -16,6 +16,7 @@ RULES = """\
 - New ADRs start as `proposed`; only a human accepts them, so ask before running `adr accept N`.
 - Never rewrite an accepted decision: `adr new "…" --supersedes N` replaces it, `adr new "…" --amends N` changes part of it.
 - Look things up: `adr show N`, `adr list --status accepted`, `adr graph N`, `adr graph N --reverse`.
+- After revisiting a decision, record it: `adr review N --until YYYY-MM-DD`. Never record a review you did not do.
 - Run `adr check` before you finish. Every command accepts `--json`."""
 
 
@@ -73,10 +74,15 @@ class Briefing:
     omitted: int
     proposed: list[Adr]
     counts: dict[str, int]
+    review: list[Finding]
 
 
 def briefing(
-    graph: AdrGraph, dir_label: str, changed: list[str], budget: int | None = None
+    graph: AdrGraph,
+    dir_label: str,
+    changed: list[str],
+    budget: int | None = None,
+    review: list[Finding] | None = None,
 ) -> Briefing:
     in_force = graph.in_force()
     proposed = [adr for _, adr in sorted(graph.nodes.items()) if adr.status is Status.PROPOSED]
@@ -95,10 +101,12 @@ def briefing(
     ]
     if omitted:
         parts.append(f"{omitted} more in force: `adr list --status accepted`")
+    if review:
+        parts += ["## Needs review", "\n".join(f"- {f.message}" for f in review)]
     parts += [
         "## Proposed",
         "\n".join(entry(graph, adr) for adr in proposed) or "None.",
         "## Using adr",
         RULES,
     ]
-    return Briefing("\n\n".join(parts), shown, omitted, proposed, counts)
+    return Briefing("\n\n".join(parts), shown, omitted, proposed, counts, review or [])

@@ -91,3 +91,42 @@ def test_top_entry_exceeding_budget_is_shown():
 
 def test_prime_negative_budget_is_usage_error(initialized):
     assert initialized.adr("prime", "--budget", "-1").code == 2
+
+
+from adrinaline.model import Finding  # noqa: E402
+
+
+def test_briefing_needs_review_section():
+    g = graph_of((1, "accepted", "2026-01-15", []))
+    note = Finding(
+        "review-overdue",
+        "warning",
+        "d/0001-a1.md",
+        "0001 Decision 1: review-by 2026-06-01 has passed; run `adr review 1` after revisiting it",
+    )
+    b = prime.briefing(g, "docs/adr", [], review=[note])
+    assert "## Needs review\n\n- 0001 Decision 1: review-by 2026-06-01 has passed" in b.markdown
+    assert (
+        b.markdown.index("## Decisions in force")
+        < b.markdown.index("## Needs review")
+        < b.markdown.index("## Proposed")
+    )
+    assert "## Needs review" not in prime.briefing(g, "docs/adr", []).markdown
+    assert "adr review N" in prime.RULES
+
+
+def test_prime_cli_needs_review(initialized):  # AC28
+    w = initialized
+    assert "Needs review" not in w.adr("prime").out
+    w.write_adr(2, "x", review_by="2000-01-01")
+    w.write_adr(3, "db", scope=["src/db/**"])
+    w.write(".adrinaline.toml", "drift-commits = 1\n")
+    w.commit_all("adrs")
+    w.write("src/db/conn.py", "1\n")
+    w.commit_all("db")
+    out = w.adr("prime").out
+    assert "## Needs review" in out and "adr review 2" in out and "adr review 3" in out
+    data = w.adr("prime", "--json").json()
+    assert [f["code"] for f in data["needs_review"]] == ["review-overdue", "stale-decision"]
+    assert data["needs_review"][1]["path"] == "docs/adr/0003-db.md"
+    assert "## Needs review" in w.adr("prime", "--budget", "5").out
