@@ -100,3 +100,52 @@ def test_commits_since_at_revision(ws):
 
 def test_commits_since_without_commits(ws):
     assert git.commits_since(ws.root, D(2000, 1, 1)) == []
+
+
+def test_drift_cli(initialized):  # AC26
+    w = initialized
+    w.write_adr(2, "db", scope=["src/db/**"])
+    w.write_adr(3, "unscoped")
+    w.commit_all("adrs")
+    w.write("src/db/conn.py", "1\n")
+    w.commit_all("db one")
+    w.write("src/db/pool.py", "1\n")
+    w.commit_all("db two")
+    w.write("src/other/x.py", "1\n")
+    w.commit_all("other")
+    data = w.adr("drift", "--json").json()
+    assert [(d["number"], d["commits"]) for d in data] == [(2, 2)]
+    assert data[0]["files"] == ["src/db/conn.py", "src/db/pool.py"]
+    assert data[0]["last"]["subject"] == "db two" and data[0]["baseline"] == "2026-01-15"
+    assert set(data[0]) == {
+        "number",
+        "id",
+        "title",
+        "baseline",
+        "review-by",
+        "revisit-if",
+        "commits",
+        "files",
+        "last",
+    }
+    text = w.adr("drift").out
+    assert text.startswith("0002  Db  2 commits / 2 files since 2026-01-15  last: ")
+    assert "db two" in text and "2 in force without scope" in text
+    assert w.adr("review", "2").code == 0
+    w.commit_all("reviewed")
+    assert w.adr("drift", "--json").json()[0]["commits"] == 0
+    assert w.adr("drift", "--at", "HEAD~1", "--json").json()[0]["commits"] == 2
+    assert w.adr("drift", "2", "--json").json()[0]["number"] == 2
+    assert w.adr("drift", "3", "--json").json() == []
+
+
+def test_drift_needs_git(tmp_path):
+    (tmp_path / "docs" / "adr").mkdir(parents=True)
+    from adrinaline.cli import main
+
+    assert main(["drift", "--json"], cwd=tmp_path, env={}) == 3
+
+
+def test_drift_bad_revision(initialized):
+    result = initialized.adr("drift", "--at", "nope", "--json")
+    assert result.code != 0 and "bad-revision" in result.out

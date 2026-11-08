@@ -38,6 +38,8 @@ READS = [
     ["check"],
     ["check", "--diff", "HEAD"],
     ["for", "src/x.py"],
+    ["drift"],
+    ["drift", "--at", "HEAD"],
     ["log", "1"],
     ["log", "1", "--at", "HEAD"],
     ["list", "--at", "HEAD"],

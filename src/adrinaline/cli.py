@@ -10,7 +10,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from adrinaline import __version__, git, prime, repo
+from adrinaline import __version__, drift, git, prime, repo
 from adrinaline.check import run_checks
 from adrinaline.frontmatter import render, split
 from adrinaline.graph import (
@@ -366,6 +366,57 @@ def cmd_for(ctx: Ctx) -> None:
     ctx.out.result(data, "\n".join(lines))
 
 
+def _commits(ctx: Ctx, adrs: list[Adr]) -> list[git.Commit]:
+    """Commits since the earliest drift baseline, or [] when stale-decision is off (SPEC §5)."""
+    since = drift.earliest_baseline(adrs)
+    if ctx.loc.root is None or ctx.loc.drift_commits == 0 or since is None:
+        return []
+    return git.commits_since(ctx.loc.root, since, getattr(ctx.args, "at", None))
+
+
+def cmd_drift(ctx: Ctx) -> None:
+    root = ctx.loc.root
+    if root is None:
+        raise AdrError("no-git", "adr drift needs a git repository")
+    graph = AdrGraph(ctx.load().adrs)
+    in_force = graph.in_force()
+    if ctx.args.refs:
+        wanted = {repo.resolve(graph.adrs, ref).number for ref in ctx.args.refs}
+        in_force = [a for a in in_force if a.number in wanted]
+    since = drift.earliest_baseline(in_force)
+    commits = git.commits_since(root, since, ctx.args.at) if since else []
+    drifts = drift.compute(in_force, commits)
+    lines = []
+    data = []
+    for d in drifts:
+        last = d.last  # local name so the type checker narrows Commit | None once
+        line = (
+            f"{d.adr.id}  {d.adr.title}  {len(d.commits)} commits / {len(d.files)} files "
+            f"since {d.adr.baseline}"
+        )
+        if last:
+            line += f"  last: {last.date} {last.subject}"
+        lines.append(line)
+        data.append(
+            {
+                "number": d.adr.number,
+                "id": d.adr.id,
+                "title": d.adr.title,
+                "baseline": d.adr.baseline.isoformat(),
+                "review-by": d.adr.review_by.isoformat() if d.adr.review_by else None,
+                "revisit-if": d.adr.revisit_if,
+                "commits": len(d.commits),
+                "files": d.files,
+                "last": {"commit": last.sha, "date": last.date.isoformat(), "subject": last.subject}
+                if last
+                else None,
+            }
+        )
+    if unscoped := sum(1 for a in in_force if not a.scope):
+        lines.append(f"{unscoped} in force without scope, not tracked")
+    ctx.out.result(data, "\n".join(lines) or "nothing to track")
+
+
 def cmd_prime(ctx: Ctx) -> None:
     graph = AdrGraph(ctx.load().adrs)
     root = ctx.loc.root
@@ -534,6 +585,9 @@ def build_parser() -> argparse.ArgumentParser:
     p = add("for", cmd_for, "list the ADRs in force that govern each path", reads_=True)
     p.add_argument("paths", nargs="+", metavar="PATH")
     p.add_argument("--all", action="store_true", help="include proposed ADRs")
+
+    p = add("drift", cmd_drift, "show churn over each ADR's scope since its baseline", reads_=True)
+    p.add_argument("refs", nargs="*", metavar="REF")
 
     p = add("prime", cmd_prime, "print the agent briefing", reads_=True)
     p.add_argument(

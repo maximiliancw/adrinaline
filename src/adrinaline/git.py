@@ -125,11 +125,15 @@ def commits_since(root: Path, since: dt.date, rev: str | None = None) -> list[Co
     # header one per line. ponytail: core.quotePath=false keeps non-ASCII names readable; a
     # name containing a newline is still C-quoted by git and would be miscounted.
     fmt = "--format=%x1e%H%x1f%cs%x1f%s"
+    # --since is compared in the committer's own timezone, so a commit made early the next day
+    # in a far-east zone can look older than the baseline; start a day early and let
+    # drift.compute do the exact committer-day comparison.
+    start = since - dt.timedelta(days=1)
     args = [
         "log",
         "--no-merges",
         "--name-only",
-        f"--since={since.isoformat()}",
+        f"--since={start.isoformat()}",
         fmt,
         rev or "HEAD",
         "--",
