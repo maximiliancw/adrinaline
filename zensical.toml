@@ -8,6 +8,7 @@ extra_css = ["stylesheets/brand.css"]
 extra_javascript = ["javascripts/follow-system-scheme.js"]
 nav = [
   { "Home" = "index.md" },
+  { "CLI reference" = "cli.md" },
   { "Specification" = "SPEC.md" },
   { "API reference" = "reference.md" },
 ]
