@@ -98,12 +98,14 @@ def read_dir_at(root: Path | None, rev: str, directory: Path) -> list[tuple[Path
     return items
 
 
-def log(root: Path | None, path: Path) -> list[dict[str, str]]:
+def log(root: Path | None, path: Path, rev: str | None = None) -> list[dict[str, str]]:
     if root is None:
         raise AdrError("no-git", "adr log needs a git repository")
-    out = run(["log", "--follow", "--format=%H%x1f%as%x1f%an%x1f%s", "--", str(path)], root) or ""
+    fmt = "--format=%H%x1f%as%x1f%an%x1f%s"
+    # NUL-separated: str.splitlines() would also split a subject on U+2028, U+0085, \f, \x1c-\x1e
+    out = run(["log", "-z", "--follow", fmt, rev or "HEAD", "--", str(path)], root) or ""
     keys = ("commit", "date", "author", "subject")
-    return [dict(zip(keys, line.split("\x1f"), strict=True)) for line in out.splitlines() if line]
+    return [dict(zip(keys, rec.split("\x1f"), strict=True)) for rec in out.split("\0") if rec]
 
 
 def changed_files(root: Path, base: str) -> list[str]:

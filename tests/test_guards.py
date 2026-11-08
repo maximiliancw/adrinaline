@@ -38,6 +38,7 @@ READS = [
     ["check", "--diff", "HEAD"],
     ["for", "src/x.py"],
     ["log", "1"],
+    ["log", "1", "--at", "HEAD"],
     ["list", "--at", "HEAD"],
     ["skill"],
     ["prime"],

@@ -301,7 +301,7 @@ Global flags: `--json` (machine output), `--dir PATH` (overrides §5),
 | `adr check [--strict] [--diff REF]` | Validate the set (§11). Exit 1 if any error (or any warning with `--strict`). `--diff REF` also reports every changed file (`git diff --name-only REF`, plus untracked files) governed by an ADR in force, as `scoped-change` findings naming the ADRs to review. CI gate: `adr check --diff origin/main --strict`. |
 | `adr for PATH... [--all]` | List the ADRs in force that govern each path (§8). `--all` includes `proposed`. |
 | `adr renumber REF --to N` | Rename the file, rewrite every relation that points at the old number, and rewrite Markdown links of the form `NNNN-slug.md` in all ADR bodies. Refuses if N is taken. If the old number is duplicated, numeric relations are left alone (they keep pointing at the remaining file) and only filename links are rewritten. |
-| `adr log REF` | `git log --follow` for the ADR file (date, author, subject). |
+| `adr log REF` | `git log --follow` for the ADR file (date, author, subject). With `--at REV`, the ADR is looked up at REV and only commits reachable from REV are listed. |
 | `adr prime [--budget N]` | Print the agent briefing (§12), optionally limited to about N words. |
 | `adr skill [--install DIR]` | Print the bundled `SKILL.md`. With `--install`, write `SKILL.md` and `references/frontmatter.md` into the skill directory `DIR` (created with parents) and print the written paths. |
 

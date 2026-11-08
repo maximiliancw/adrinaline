@@ -1,4 +1,9 @@
+import argparse
+import re
+
 import pytest
+
+from adrinaline.cli import build_parser
 
 
 def test_new_skips_numbers_taken_on_other_branches(initialized):  # AC5
@@ -38,6 +43,33 @@ def test_log_lists_commits(initialized):
     assert [r["subject"] for r in rows] == ["accept 0002", "add 0002"]
     assert rows[0]["author"] == "Test User"
     assert "accept 0002" in initialized.adr("log", "2").out
+
+
+def test_log_at_revision(initialized):
+    initialized.adr("new", "Use PostgreSQL")
+    initialized.commit_all("add 0002")
+    initialized.adr("accept", "2")
+    initialized.commit_all("accept 0002")
+    rows = initialized.adr("log", "2", "--at", "HEAD~1", "--json").json()
+    assert [r["subject"] for r in rows] == ["add 0002"]
+
+
+def test_at_error_lists_every_read_command(initialized):
+    sub = next(a for a in build_parser()._actions if isinstance(a, argparse._SubParsersAction))
+    reads = {name for name, p in sub.choices.items() if p.get_default("reads")}
+    result = initialized.adr("--at", "HEAD", "new", "X")
+    assert result.code == 2
+    listed = set(re.findall(r"\((.*)\)", result.err)[0].split(", "))
+    assert listed == reads
+    assert {"prime", "log"} <= listed
+    assert initialized.adr("--at", "", "new", "X").code == 2
+
+
+def test_log_survives_unicode_line_separators_in_subject(initialized):
+    initialized.adr("new", "Use PostgreSQL")
+    initialized.commit_all("fix\u2028thing\x0c!")
+    rows = initialized.adr("log", "2", "--json").json()
+    assert [r["subject"] for r in rows] == ["fix\u2028thing\x0c!"]
 
 
 def test_log_outside_git(tmp_path):
