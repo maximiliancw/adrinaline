@@ -245,7 +245,7 @@ def cmd_graph(ctx: Ctx) -> None:
         nodes = sorted(nodes, key=lambda n: (-ranks.get(n, 0.0), n))
         if fmt == "json":
             ctx.out.json_mode = True
-            ctx.out.result(graph_data(graph, nodes, edges, ranks), "")
+            ctx.out.result(graph_data(graph, nodes, edges, ranks, ctx.out.rel), "")
         else:
             lines = [
                 f"{ranks.get(n, 0.0):.3f}  {graph.label(n)} [{graph.status(n)}]" for n in nodes
@@ -254,7 +254,7 @@ def cmd_graph(ctx: Ctx) -> None:
         return
     if fmt == "json":
         ctx.out.json_mode = True
-        ctx.out.result(graph_data(graph, nodes, edges), "")
+        ctx.out.result(graph_data(graph, nodes, edges, rel=ctx.out.rel), "")
     elif fmt == "mermaid":
         ctx.out.result(None, render_mermaid(graph, nodes, edges))
     elif fmt == "dot":
