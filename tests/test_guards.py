@@ -11,6 +11,7 @@ def mutations(install_dir: Path) -> list[list[str]]:
         ["new", "A", "--accepted"],  # 0002
         ["new", "B"],  # 0003
         ["accept", "3"],
+        ["review", "3", "--until", "2099-01-01"],
         ["link", "3", "depends-on", "2"],
         ["new", "C", "--supersedes", "2"],  # 0004
         ["unlink", "3", "depends-on", "2"],

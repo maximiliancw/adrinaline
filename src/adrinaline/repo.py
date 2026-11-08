@@ -208,6 +208,14 @@ def set_status(adr: Adr, status: Status, today: dt.date) -> None:
     adr.meta["date"] = today
 
 
+def record_review(adr: Adr, today: dt.date, until: dt.date | None) -> None:
+    adr.reviewed = today
+    adr.meta["reviewed"] = today
+    if until is not None:
+        adr.review_by = until
+        adr.meta["review-by"] = until
+
+
 def transition(adr: Adr, to: Status, *, force: bool = False, today: dt.date) -> None:
     if not force and (adr.status, to) not in TRANSITIONS:
         raise AdrError(
@@ -242,6 +250,7 @@ def render_new(
     body: str | None,
     tags: list[str],
     scope: list[str],
+    review_by: dt.date | None = None,
 ) -> str:
     try:
         meta, template_body = split(template.replace("{title}", title))
@@ -257,6 +266,8 @@ def render_new(
         meta["tags"] = flow(sorted({*old, *tags}))
     if scope:
         meta["scope"] = flow(list(dict.fromkeys(scope)))
+    if review_by is not None:
+        meta["review-by"] = review_by
     if body is not None:
         template_body = f"# {title}\n\n{body.strip()}\n"
     text = render(meta, template_body)
