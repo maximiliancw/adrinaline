@@ -105,3 +105,27 @@ def test_non_table_tool_adrinaline_is_bad_config(ws):
     r = ws.adr("list")
     assert r.code == 3
     assert "bad-config" in r.err or "table" in r.err
+
+
+def test_drift_commits_defaults_to_zero(tmp_path):
+    assert repo.locate(tmp_path, {}).drift_commits == 0
+
+
+def test_drift_commits_from_dedicated_file(tmp_path):
+    (tmp_path / ".adrinaline.toml").write_text("drift-commits = 25\n", encoding="utf-8")
+    assert repo.locate(tmp_path, {}).drift_commits == 25
+
+
+def test_drift_commits_from_pyproject(tmp_path):
+    (tmp_path / "pyproject.toml").write_text(
+        "[tool.adrinaline]\ndrift-commits = 3\n", encoding="utf-8"
+    )
+    assert repo.locate(tmp_path, {}).drift_commits == 3
+
+
+@pytest.mark.parametrize("value", ["true", "-1", '"5"', "2.5"])
+def test_drift_commits_must_be_a_non_negative_integer(tmp_path, value):
+    (tmp_path / ".adrinaline.toml").write_text(f"drift-commits = {value}\n", encoding="utf-8")
+    with pytest.raises(AdrError) as exc:
+        repo.locate(tmp_path, {})
+    assert exc.value.code == "bad-config"
