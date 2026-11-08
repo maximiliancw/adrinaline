@@ -1,7 +1,9 @@
 """Read-only wrappers around the git executable. Never stage, commit or fetch."""
 
+import datetime as dt
 import os
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
 from adrinaline.model import FILENAME_RE, AdrError
@@ -106,6 +108,42 @@ def log(root: Path | None, path: Path, rev: str | None = None) -> list[dict[str,
     out = run(["log", "-z", "--follow", fmt, rev or "HEAD", "--", str(path)], root) or ""
     keys = ("commit", "date", "author", "subject")
     return [dict(zip(keys, rec.split("\x1f"), strict=True)) for rec in out.split("\0") if rec]
+
+
+@dataclass(frozen=True)
+class Commit:
+    sha: str
+    date: dt.date  # committer date
+    subject: str
+    files: tuple[str, ...]
+
+
+def commits_since(root: Path, since: dt.date, rev: str | None = None) -> list[Commit]:
+    """Non-merge commits reachable from rev (default HEAD) since a date, newest first, with
+    the files each one touched. [] when git fails (for example no commits yet)."""
+    # Records are separated by RS (\x1e), header fields by US (\x1f); file names follow the
+    # header one per line. ponytail: core.quotePath=false keeps non-ASCII names readable; a
+    # name containing a newline is still C-quoted by git and would be miscounted.
+    fmt = "--format=%x1e%H%x1f%cs%x1f%s"
+    args = [
+        "log",
+        "--no-merges",
+        "--name-only",
+        f"--since={since.isoformat()}",
+        fmt,
+        rev or "HEAD",
+        "--",
+    ]
+    out = run(args, root) or ""
+    commits: list[Commit] = []
+    for record in out.split("\x1e"):
+        header, _, rest = record.partition("\n")
+        if not header:
+            continue
+        sha, date, subject = header.split("\x1f", 2)
+        files = tuple(sorted(f for f in rest.split("\n") if f))
+        commits.append(Commit(sha, dt.date.fromisoformat(date), subject, files))
+    return commits
 
 
 def changed_files(root: Path, base: str) -> list[str]:
