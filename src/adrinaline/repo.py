@@ -35,6 +35,7 @@ class Location:
     dir: Path
     root: Path | None
     template: Path
+    drift_commits: int = 0
 
 
 @dataclass
@@ -86,6 +87,9 @@ def locate(cwd: Path, env: Mapping[str, str], explicit: Path | None = None) -> L
     for key in ("dir", "template"):
         if key in table and not isinstance(table[key], str):
             raise AdrError("bad-config", f"config key {key!r} must be a string")
+    drift_commits = table.get("drift-commits", 0)
+    if isinstance(drift_commits, bool) or not isinstance(drift_commits, int) or drift_commits < 0:
+        raise AdrError("bad-config", "config key 'drift-commits' must be a non-negative integer")
     if explicit is not None:
         directory = cwd / explicit
     elif env.get("ADR_DIR"):
@@ -98,7 +102,7 @@ def locate(cwd: Path, env: Mapping[str, str], explicit: Path | None = None) -> L
         directory = (root or cwd) / "docs" / "adr"
     directory = directory.resolve()
     template = (base / table["template"]) if "template" in table else directory / ".template.md"
-    return Location(directory, root, template.resolve())
+    return Location(directory, root, template.resolve(), drift_commits)
 
 
 def no_dir(loc: Location) -> AdrError:
