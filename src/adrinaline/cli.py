@@ -328,12 +328,16 @@ def cmd_check(ctx: Ctx) -> int:
     if ctx.args.diff and root is None:
         raise AdrError("no-git", "--diff needs a git repository")
     at = getattr(ctx.args, "at", None)
+    s = ctx.load()
     findings = run_checks(
-        ctx.load(),
+        s,
         template_exists=ctx.loc.template.is_file(),
         tracked=(git.files_at(root, at) if at else git.tracked_files(root)) if root else None,
         changed=git.changed_files(root, ctx.args.diff) if root and ctx.args.diff else None,
         taken_elsewhere=set(git.numbers_on_refs(root, ctx.loc.dir)) if root and not at else None,
+        today=today(),
+        commits=_commits(ctx, AdrGraph(s.adrs).in_force()) if root else None,
+        drift_commits=ctx.loc.drift_commits,
     )
     failed = any(f.severity == "error" for f in findings) or (ctx.args.strict and bool(findings))
     rows = [
