@@ -245,6 +245,25 @@ def test_broken_template_is_bad_template(initialized):
     assert result.json()["error"]["code"] == "bad-template"
 
 
+@pytest.mark.parametrize("tag", [[], ["--tag", "t"]])
+@pytest.mark.parametrize(
+    "template", ["---\nstatus: proposed\n---\nno heading\n", "---\ntags: 5\n---\n# {title}\n"]
+)
+def test_invalid_template_writes_nothing(initialized, template, tag):
+    (initialized.adr_dir / ".template.md").write_text(template, encoding="utf-8")
+    result = initialized.adr("new", "X", *tag, "--json")
+    assert result.code == 3
+    assert result.json()["error"]["code"] == "bad-template"
+    assert [p.name for p in initialized.adr_dir.glob("[0-9]*.md")] == [
+        "0001-record-architecture-decisions.md"
+    ]
+
+
+def test_blank_title_is_usage_error(initialized):
+    assert initialized.adr("new", " ").code == 2
+    assert not list(initialized.adr_dir.glob("0002-*.md"))
+
+
 def test_blank_ref_is_not_found(initialized):
     result = initialized.adr("show", " ", "--json")
     assert result.code == 3
