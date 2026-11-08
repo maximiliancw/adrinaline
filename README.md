@@ -20,6 +20,7 @@ An Architecture Decision Record (ADR) is a short file that records one significa
 - `adr check` validates the set in CI or pre-commit.
 - Read-only git integration: it never stages, commits or fetches.
 - The ADR set is a graph (text, Mermaid, DOT, JSON), tied to code via `scope` globs and queryable at any git revision.
+- Decision health: `review-by` dates and churn over an ADR's `scope` (`adr drift`), reported by `adr check` and `adr prime`.
 - Every command has `--json`; `adr prime` briefs an agent at session start.
 
 | | adrinaline | [adr-tools](https://github.com/npryce/adr-tools) | [log4brains](https://github.com/thomvaill/log4brains) | [MADR](https://adr.github.io/madr/) |
@@ -29,6 +30,7 @@ An Architecture Decision Record (ADR) is a short file that records one significa
 | Validation for CI (`adr check`) | yes | no | no | no |
 | Decision graph export | text, Mermaid, DOT, JSON | graph generation | web UI | no |
 | Agent briefing (`adr prime`) | yes | no | no | no |
+| Decision health (review dates, scope drift) | yes | no | no | no |
 
 Cells for the other tools reflect their READMEs; "no" means the feature is not documented there.
 
