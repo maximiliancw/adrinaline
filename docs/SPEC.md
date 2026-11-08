@@ -54,7 +54,7 @@ fragile. No code is copied. Ideas adopted:
 | Typed relations with tree view and cycle checks | ticket |
 | Global `--json` flag through one output helper | Go port |
 | Library core with a thin CLI layer | Go port |
-| Black-box tests against the installed command | Go port |
+| Black-box tests of the CLI in a subprocess | Go port |
 | Shipped agent skill (`SKILL.md`) | Go port |
 | `.adr-dir` file for locating the ADR directory | adr-tools |
 
@@ -106,7 +106,8 @@ commands all query that graph instead of reading files themselves.
   numbers above 9999 widen naturally (`10000-…`). `slug` is lowercase ASCII,
   words joined by `-`, derived from the title at creation.
 - Template: `docs/adr/.template.md` (hidden, so it never appears as an ADR).
-- Files in the directory that do not match `^\d{4,}-[a-z0-9-]+\.md$` are
+- Files in the directory that do not match `^\d{4,}-[a-z0-9]+(-[a-z0-9]+)*\.md$`
+  (no leading, trailing or doubled hyphens in the slug) are
   ignored by all commands except `check`, which reports them as warnings
   (`README.md` and dotfiles are exempt).
 - Number and slug live only in the filename; they are never duplicated in
@@ -194,8 +195,10 @@ uses the current directory. If nothing exists, every command except `init`
 fails with error code `no-adr-dir`. `adr init` creates the directory resolved
 by steps 1–3, else `<git root or cwd>/docs/adr`.
 
-`.adrinaline.toml` may also set `template` (path to the template, default
-`<dir>/.template.md`). There is no other configuration.
+The configuration file found in step 2 (`.adrinaline.toml` or
+`[tool.adrinaline]`) may also set `template` (path to the template, relative
+to that file, default `<dir>/.template.md`). There is no other configuration.
+An unreadable or mistyped configuration fails with `bad-config`.
 
 ## 6. ADR references
 
@@ -285,14 +288,14 @@ Global flags: `--json` (machine output), `--dir PATH` (overrides §5),
 | Command | Effect |
 |---|---|
 | `adr init [--force]` | Create the ADR dir, `.template.md` and `0001-record-architecture-decisions.md` (status `accepted`). Idempotent: existing files are left alone unless `--force`. |
-| `adr new TITLE [--accepted] [--tag T]... [--scope GLOB]... [--supersedes REF]... [--amends REF]... [--depends-on REF]... [--relates-to REF]... [--body-file PATH\|-] [--edit]` | Allocate the next number (§10), render the template, write the file, apply relations. `--body-file` replaces the template body below the title (`-` reads stdin). `--edit` opens `$VISUAL`/`$EDITOR` afterwards. `--scope` sets a repository-relative glob in the `scope` list; absolute or `..` globs fail with `bad-scope` before any file is written. Prints the new path. |
+| `adr new TITLE [--accepted] [--force] [--tag T]... [--scope GLOB]... [--supersedes REF]... [--amends REF]... [--depends-on REF]... [--relates-to REF]... [--body-file PATH\|-] [--edit]` | Allocate the next number (§10), render the template, write the file, apply relations. `--body-file` replaces the template body below the title (`-` reads stdin). `--edit` opens `$VISUAL`/`$EDITOR` afterwards. `--scope` sets a repository-relative glob in the `scope` list; absolute or `..` globs fail with `bad-scope` before any file is written. `--force` lets `--supersedes` target an ADR that is not `accepted`. Prints the new path. |
 | `adr show REF [--raw]` | Show one ADR: metadata, resolved relation titles, body. `--raw` prints the file verbatim. |
 | `adr list [--status S]... [--tag T]...` | One line per ADR, ordered by number: number, status, date, title. |
 | `adr index` | Print a Markdown table (number with link, title, status, date) for pasting into docs. |
-| `adr accept REF`, `adr reject REF`, `adr deprecate REF` | Status transitions (§7). |
-| `adr supersede OLD --by NEW` | Add `NEW supersedes OLD`, mark OLD `superseded`. |
+| `adr accept REF [--force]`, `adr reject REF [--force]`, `adr deprecate REF [--force]` | Status transitions (§7); `--force` allows any transition. |
+| `adr supersede OLD --by NEW [--force]` | Add `NEW supersedes OLD`, mark OLD `superseded`. `--force` allows an OLD that is not `accepted`. |
 | `adr link REF RELATION REF` / `adr unlink REF RELATION REF` | Add/remove `amends`, `depends-on` or `relates-to` on the first ADR only (§8). |
-| `adr graph [REF] [--relation R]... [--depth N] [--reverse] [--rank] [--format text\|mermaid\|dot\|json]` | Render the graph: the whole set, or the subgraph reachable from REF (`--reverse` follows inverse edges, by default only `depends-on` and `amends`, giving the impact set). `text` (default) is an indented, deduplicated tree; `mermaid` renders in GitHub/GitLab Markdown; `dot` feeds Graphviz; `json` is `{"nodes": […], "edges": [{"from", "to", "relation"}]}`. Node styling encodes status in mermaid and dot. `--rank` orders output by rank and adds a `rank` value to text and JSON nodes. |
+| `adr graph [REF] [--relation R]... [--depth N] [--reverse] [--rank] [--format text\|mermaid\|dot\|json]` | Render the graph: the whole set, or the subgraph reachable from REF (`--reverse` follows inverse edges, by default only `depends-on` and `amends`, giving the impact set). `text` (default) is an indented, deduplicated tree; `mermaid` renders in GitHub/GitLab Markdown; `dot` feeds Graphviz; `json` is `{"nodes": […], "edges": [{"from", "to", "relation"}]}`. Node styling encodes status in mermaid and dot. `--rank` orders the nodes by rank: text output becomes a flat list, one `rank  NNNN title [status]` line per node, and JSON nodes gain a `rank` value; `--rank` with `mermaid` or `dot` is a usage error unless `--json` is given. |
 | `adr check [--strict] [--diff REF]` | Validate the set (§11). Exit 1 if any error (or any warning with `--strict`). `--diff REF` also reports every changed file (`git diff --name-only REF`, plus untracked files) governed by an ADR in force, as `scoped-change` findings naming the ADRs to review. CI gate: `adr check --diff origin/main --strict`. |
 | `adr for PATH... [--all]` | List the ADRs in force that govern each path (§8). `--all` includes `proposed`. |
 | `adr renumber REF --to N` | Rename the file, rewrite every relation that points at the old number, and rewrite Markdown links of the form `NNNN-slug.md` in all ADR bodies. Refuses if N is taken. If the old number is duplicated, numeric relations are left alone (they keep pointing at the remaining file) and only filename links are rewritten. |
@@ -300,8 +303,11 @@ Global flags: `--json` (machine output), `--dir PATH` (overrides §5),
 | `adr prime [--budget N]` | Print the agent briefing (§12), optionally limited to about N words. |
 | `adr skill [--install DIR]` | Print the bundled `SKILL.md`. With `--install`, write `SKILL.md` and `references/frontmatter.md` into the skill directory `DIR` (created with parents) and print the written paths. |
 
-All mutating commands print what changed (paths and fields) in human mode, and
-the same as JSON with `--json`.
+Every mutating command prints a short summary of what changed in human mode:
+the written paths (`init`, `new`, `unlink`, `renumber`) or the affected ADRs
+by number, with titles for `accept`, `reject`, `deprecate` and `supersede`
+(`link` prints numbers only). With `--json` it prints the changed ADRs or
+paths as one JSON document.
 
 ## 10. Number allocation and collisions
 
@@ -317,7 +323,8 @@ the same as JSON with `--json`.
 
 ## 11. Validation (`adr check`)
 
-Each finding has a stable code, a severity, a file and a message.
+Each finding has a stable `code`, a `severity`, a `path` (repository-relative,
+empty for set-wide findings) and a `message`.
 
 | Code | Severity | Condition |
 |---|---|---|
@@ -334,11 +341,11 @@ Each finding has a stable code, a severity, a file and a message.
 | `self-relation` | error | ADR relates to itself |
 | `cycle` | error | Cycle in `supersedes` or `depends-on` |
 | `status-mismatch` | error | `superseded-by` set but status ≠ `superseded`, or vice versa |
-| `number-gap` | warning | A number between 1 and the maximum is missing |
+| `number-gap` | warning | A number between 1 and the maximum is missing and not present on any local branch or remote-tracking ref (§10; refs are not consulted with `--at`) |
 | `no-template` | warning | `.template.md` missing |
 | `bad-scope` | error | `scope` is not a list of relative glob strings |
 | `unknown-relation-key` | warning | Frontmatter uses a snake_case relation key (`superseded_by`, `depends_on`, `relates_to`, `amended_by`, `dependency_of`); the hyphenated key is meant |
-| `scope-matches-nothing` | warning | A `scope` glob matches no file in `git ls-files` |
+| `scope-matches-nothing` | warning | A `scope` glob matches no tracked or untracked, non-ignored file (`git ls-files --cached --others --exclude-standard`; with `--at`, the files at that revision) |
 | `scoped-change` | warning | With `--diff` only: a changed file is governed by an ADR in force |
 
 `adr check --fix` is not in v1.
@@ -363,7 +370,7 @@ Each finding has a stable code, a severity, a file and a message.
 | 0 | Success |
 | 1 | `check` found problems |
 | 2 | Usage error (argparse) |
-| 3 | Domain error (`not-found`, `ambiguous`, `invalid-transition`, `cycle`, `self-relation`, `no-adr-dir`, `exists`, `no-git`, `bad-revision`) |
+| 3 | Domain error, reported as an error envelope (`not-found`, `ambiguous`, `invalid-transition`, `cycle`, `self-relation`, `no-adr-dir`, `exists`, `no-git`, `bad-revision`, `bad-scope`, `bad-config`, `bad-template`, `io`, or a §11 parse code such as `no-title` when `new` re-reads the file it wrote) |
 
 ### `adr prime`
 
@@ -379,7 +386,7 @@ Prints a compact briefing in Markdown (JSON with `--json`):
 
 With `--budget N`, sections 1, 3 and 4 are always printed in full; section 2
 is limited to about N words and filled with ADRs in force in descending
-score:
+score. The top-scored ADR is always shown, even if its line alone exceeds N:
 
     score = 0.5 · rank (normalised to 0–1)
           + 0.3 · scope hit (1 if the ADR governs a file changed in the working
@@ -424,15 +431,17 @@ cross-branch numbers (§10), `adr log`. Never: `add`, `commit`, `fetch`,
 ## 15. Testing and quality
 
 - `pytest`. Unit tests for `frontmatter`, `model`, `repo`, `check`.
-- CLI tests run `adr` as a subprocess inside temporary git repositories created
-  per test, covering each command in human and `--json` mode, including error
-  codes.
+- CLI tests run the CLI as a subprocess (`python -m adrinaline`, the same entry
+  point as `adr`) inside temporary git repositories created per test,
+  covering each command in human and `--json` mode, including error codes.
 - `ruff check`, `ruff format --check`, `ty check` must pass.
-- CI (GitHub Actions): on pull requests, commit-message, lint, test and
-  `adr check --strict` gates on `ubuntu-latest` and `macos-latest` with
-  Python 3.14. Every push to `main` releases when commitizen finds a bump:
-  tag, `uv build`, PyPI trusted publishing, GitHub Release (ADR 0006).
-  Docs are built with zensical and published to GitHub Pages.
+- CI (GitHub Actions): on pull requests, the commit-message, lint, type and
+  `adr check --strict` gates and a strict docs build run on `ubuntu-latest`;
+  tests run on `ubuntu-latest` and `macos-latest` with Python 3.14. Every push
+  to `main` releases when commitizen finds a bump: `uv build`, maintainer
+  approval in the `release` environment (ADR 0007), tag, PyPI trusted
+  publishing, GitHub Release (ADR 0006). Docs are built with zensical and
+  published to GitHub Pages.
 
 ## 16. Acceptance criteria
 
@@ -488,5 +497,5 @@ Each criterion is an automated test.
 22. On a fixture where 0002 is the target of three `depends-on` edges,
     `adr graph --rank --json` ranks 0002 first; ranks sum to 1 within 1e-6.
 23. `adr prime --budget 150` on a 30-ADR fixture prints at most 150 words of
-    ADR entries, always includes the top-scored ADR, and ends with the
-    left-out count.
+    ADR entries (unless the top-scored entry alone is longer), always includes
+    the top-scored ADR, and ends with the left-out count.
