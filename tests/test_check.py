@@ -107,6 +107,13 @@ def _governed_change(w):
     w.write("src/db/conn.py", "y\n")
 
 
+def _stale(w):
+    w.write(".adrinaline.toml", "drift-commits = 1\n")
+    w.write_adr(2, "x", scope=["src/**"])
+    w.write("src/a.py", "x\n")
+    w.commit_all()
+
+
 FRONT = "---\nstatus: accepted\ndate: 2026-01-15\n"
 CLI_CASES = {
     "bad-filename": lambda w: w.write("docs/adr/notes.md", "# Notes\n"),
@@ -130,6 +137,8 @@ CLI_CASES = {
     ),
     "scope-matches-nothing": lambda w: w.write_adr(2, "x", scope=["nowhere/**"]),
     "scoped-change": _governed_change,
+    "review-overdue": lambda w: w.write_adr(2, "x", review_by="2000-01-01"),
+    "stale-decision": _stale,
 }
 
 
@@ -161,3 +170,41 @@ def test_check_json_shape(initialized):  # AC10
     for finding in data["findings"]:
         assert set(finding) == {"code", "severity", "path", "message"}
         assert all(isinstance(v, str) for v in finding.values())
+
+
+def test_review_overdue_only_for_adrs_in_force(initialized):  # AC25
+    w = initialized
+    w.write_adr(2, "x", review_by="2000-01-01")
+    w.write_adr(3, "p", status="proposed", review_by="2000-01-01")
+    w.write_adr(4, "old", status="superseded", superseded_by=[5], review_by="2000-01-01")
+    w.write_adr(5, "new", supersedes=[4])
+    result = w.adr("check", "--json")
+    assert result.code == 0
+    overdue = [f["path"] for f in result.json()["findings"] if f["code"] == "review-overdue"]
+    assert overdue == ["docs/adr/0002-x.md"]
+    assert "adr review 2" in result.out
+    assert w.adr("check", "--strict").code == 1
+
+
+def test_stale_decision_respects_the_threshold(initialized):  # AC27
+    w = initialized
+    w.write_adr(2, "db", scope=["src/db/**"])
+    w.commit_all("adrs")
+    w.write("src/db/conn.py", "1\n")
+    w.commit_all("db one")
+    w.write("src/db/pool.py", "1\n")
+    w.commit_all("db two")
+
+    def stale():
+        return [
+            f for f in w.adr("check", "--json").json()["findings"] if f["code"] == "stale-decision"
+        ]
+
+    assert stale() == []  # default: off
+    w.write(".adrinaline.toml", "drift-commits = 3\n")
+    assert stale() == []
+    w.write(".adrinaline.toml", "drift-commits = 2\n")
+    found = stale()
+    assert len(found) == 1 and "2 commits" in found[0]["message"]
+    assert "adr review 2" in found[0]["message"]
+    assert found[0]["path"] == "docs/adr/0002-db.md"

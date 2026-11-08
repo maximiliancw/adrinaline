@@ -1,8 +1,11 @@
 """Validation rules for `adr check`. Each rule returns Finding objects."""
 
+import datetime as dt
 from collections import defaultdict
 from pathlib import PurePosixPath
 
+from adrinaline import drift
+from adrinaline.git import Commit
 from adrinaline.graph import ACYCLIC, AdrGraph
 from adrinaline.model import STORED_RELATIONS, Finding, Status
 from adrinaline.repo import AdrSet
@@ -146,8 +149,12 @@ def run_checks(
     tracked: list[str] | None = None,
     changed: list[str] | None = None,
     taken_elsewhere: set[int] | None = None,
+    today: dt.date | None = None,
+    commits: list[Commit] | None = None,
+    drift_commits: int = 0,
 ) -> list[Finding]:
     graph = AdrGraph(s.adrs)
+    in_force = graph.in_force()
     findings = [
         *s.problems,
         *_duplicates(s),
@@ -155,6 +162,12 @@ def run_checks(
         *_relations(s, graph),
         *_unknown_keys(s),
         *_scopes(s, graph, tracked, changed),
+        *drift.review_findings(
+            in_force,
+            drift.compute(in_force, commits or []),
+            today or dt.date.today(),
+            drift_commits if commits is not None else 0,
+        ),
     ]
     if not template_exists:
         findings.append(
