@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-08
 tags: [process]
 scope: [src/adrinaline/check.py, src/adrinaline/model.py, src/adrinaline/prime.py]
