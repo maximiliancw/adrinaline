@@ -11,7 +11,16 @@ EXIT_OK = 0
 EXIT_FINDINGS = 1
 EXIT_DOMAIN = 3
 
-_KNOWN_KEYS = {"status", "date", "tags", "scope", *STORED_RELATIONS}
+_KNOWN_KEYS = {
+    "status",
+    "date",
+    "tags",
+    "scope",
+    "review-by",
+    "reviewed",
+    "revisit-if",
+    *STORED_RELATIONS,
+}
 
 
 def dumps(data: Any) -> str:
@@ -59,6 +68,9 @@ def adr_dict(
         "path": out.rel(adr.path),
         "tags": list(adr.tags),
         "scope": list(adr.scope),
+        "review-by": adr.review_by.isoformat() if adr.review_by else None,
+        "reviewed": adr.reviewed.isoformat() if adr.reviewed else None,
+        "revisit-if": adr.revisit_if,
         "relations": relations
         if relations is not None
         else {name: nums for name, nums in adr.relations.items() if nums},

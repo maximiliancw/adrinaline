@@ -315,3 +315,9 @@ def test_new_edit_bad_editor_is_io_error(initialized, editor):
     r = initialized.adr("new", "T", "--edit", env={"VISUAL": editor, "EDITOR": editor})
     assert r.code == 3
     assert "io" in r.err or "editor" in r.err
+
+
+def test_show_json_carries_review_keys(initialized):
+    data = initialized.adr("show", "1", "--json").json()
+    assert (data["review-by"], data["reviewed"], data["revisit-if"]) == (None, None, None)
+    assert "review-by" not in data["meta"]

@@ -67,6 +67,9 @@ class Frontmatter(BaseModel):
     date: dt.date
     tags: list[str] = []
     scope: list[str] = []
+    review_by: dt.date | None = Field(default=None, alias="review-by")
+    reviewed: dt.date | None = None
+    revisit_if: str | None = Field(default=None, alias="revisit-if")
     supersedes: list[int] = []
     superseded_by: list[int] = Field(default=[], alias="superseded-by")
     amends: list[int] = []
@@ -82,7 +85,13 @@ class Frontmatter(BaseModel):
         return globs
 
 
-_FIELD_CODES = {"status": "bad-status", "date": "bad-date", "scope": "bad-scope"}
+_FIELD_CODES = {
+    "status": "bad-status",
+    "date": "bad-date",
+    "review-by": "bad-date",
+    "reviewed": "bad-date",
+    "scope": "bad-scope",
+}
 
 
 def _error_code(error: Any) -> str:
@@ -105,10 +114,18 @@ class Adr:
     meta: CommentedMap
     body: str
     text: str
+    review_by: dt.date | None = None
+    reviewed: dt.date | None = None
+    revisit_if: str | None = None
 
     @property
     def id(self) -> str:
         return f"{self.number:04d}"
+
+    @property
+    def baseline(self) -> dt.date:
+        """Start of the drift window: the later of date and reviewed (SPEC §8)."""
+        return max(self.date, self.reviewed) if self.reviewed else self.date
 
 
 def parse_adr(path: Path, text: str) -> Adr:
@@ -118,6 +135,10 @@ def parse_adr(path: Path, text: str) -> Adr:
     try:
         meta, body = split(text)
     except FrontmatterError as exc:
+        # Check if this is a date parsing error
+        error_str = str(exc)
+        if "month" in error_str or "day" in error_str or "year" in error_str:
+            raise AdrError("bad-date", f"{path.name}: {exc}", path=str(path)) from exc
         raise AdrError("no-frontmatter", f"{path.name}: {exc}", path=str(path)) from exc
     try:
         front = Frontmatter.model_validate(dict(meta))
@@ -144,4 +165,7 @@ def parse_adr(path: Path, text: str) -> Adr:
         meta=meta,
         body=body,
         text=text,
+        review_by=front.review_by,
+        reviewed=front.reviewed,
+        revisit_if=front.revisit_if,
     )
