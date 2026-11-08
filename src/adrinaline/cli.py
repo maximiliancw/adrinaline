@@ -106,6 +106,12 @@ def non_negative(value: str) -> int:
     return n
 
 
+def nonblank(value: str) -> str:
+    if not value.strip():
+        raise argparse.ArgumentTypeError("must not be blank")
+    return value
+
+
 def cmd_new(ctx: Ctx) -> None:
     args, loc = ctx.args, ctx.loc
     if not loc.dir.is_dir():
@@ -424,7 +430,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--force", action="store_true", help="overwrite the template and ADR 0001")
 
     p = add("new", cmd_new, "create a new ADR")
-    p.add_argument("title")
+    p.add_argument("title", type=nonblank)
     p.add_argument("--accepted", action="store_true", help="create as accepted")
     p.add_argument("--tag", action="append", default=[])
     p.add_argument("--scope", action="append", default=[], help="repository-relative glob")

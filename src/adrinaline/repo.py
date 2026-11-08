@@ -246,14 +246,22 @@ def render_new(
     meta["status"] = status.value
     meta["date"] = today
     if tags:
-        old = meta.get("tags", [])
+        old = meta.get("tags") or []
         old = [old] if isinstance(old, str) else old
+        if not isinstance(old, list) or not all(isinstance(t, str) for t in old):
+            raise AdrError("bad-template", "template: tags must be a list of strings")
         meta["tags"] = flow(sorted({*old, *tags}))
     if scope:
         meta["scope"] = flow(list(dict.fromkeys(scope)))
     if body is not None:
         template_body = f"# {title}\n\n{body.strip()}\n"
-    return render(meta, template_body)
+    text = render(meta, template_body)
+    try:  # validate before anything is written
+        parse_adr(Path("0000-new.md"), text)
+    except AdrError as exc:
+        reason = exc.message.removeprefix("0000-new.md: ")
+        raise AdrError("bad-template", f"template: {reason}") from exc
+    return text
 
 
 def numbers_in(directory: Path) -> set[int]:

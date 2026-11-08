@@ -163,7 +163,9 @@ Chosen option: "…", because …
 
 `{title}` is the only placeholder. A project may edit `.template.md` freely,
 including its frontmatter defaults (for example `tags` or `decision-makers`);
-`status` and `date` are always set by the tool.
+`status` and `date` are always set by the tool. `adr new` validates the
+rendered ADR before writing it; a template that yields an invalid ADR fails
+with `bad-template` and writes nothing.
 
 ### Writing files
 
@@ -370,7 +372,7 @@ empty for set-wide findings) and a `message`.
 | 0 | Success |
 | 1 | `check` found problems |
 | 2 | Usage error (argparse) |
-| 3 | Domain error, reported as an error envelope (`not-found`, `ambiguous`, `invalid-transition`, `cycle`, `self-relation`, `no-adr-dir`, `exists`, `no-git`, `bad-revision`, `bad-scope`, `bad-config`, `bad-template`, `io`, or a §11 parse code such as `no-title` when `new` re-reads the file it wrote) |
+| 3 | Domain error, reported as an error envelope (`not-found`, `ambiguous`, `invalid-transition`, `cycle`, `self-relation`, `no-adr-dir`, `exists`, `no-git`, `bad-revision`, `bad-scope`, `bad-config`, `bad-template`, `io`, or a §11 parse code such as `no-title` when `new --edit` re-reads the edited file) |
 
 ### `adr prime`
 
