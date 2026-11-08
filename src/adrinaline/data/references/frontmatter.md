@@ -11,6 +11,9 @@ consulted: []               # optional
 informed: []                # optional
 tags: [storage]             # optional
 scope: ["src/db/**"]        # optional, globs relative to the repository root
+review-by: YYYY-MM-DD       # optional, when to revisit the decision
+reviewed: YYYY-MM-DD        # optional, last review (`adr review N`)
+revisit-if: "…"             # optional, the assumption that would invalidate it
 supersedes: []              # relations, optional, lists of ADR numbers
 superseded-by: []
 amends: []
@@ -20,6 +23,8 @@ relates-to: []
 ```
 
 Relation values are integers (`[3, 7]`). Unknown keys are kept. Use hyphenated relation keys, not snake_case.
+
+`adr review N [--until DATE]` sets `reviewed` to today and, with `--until`, `review-by`. The drift baseline is the later of `date` and `reviewed`; `adr drift` counts the commits that touched the ADR's `scope` since then.
 
 ## Status transitions
 
@@ -53,7 +58,7 @@ stdout is exactly one JSON document.
 
 - `adr list`: array of ADR objects.
 - `adr show REF`: one ADR object plus `"body"`.
-- ADR object: `{"number": 7, "id": "0007", "slug": "...", "title": "...", "status": "...", "date": "YYYY-MM-DD", "path": "docs/adr/0007-....md", "tags": [], "scope": [], "relations": {"supersedes": [3]}, "meta": {}}`. `relations` includes derived inverses; `meta` holds other keys.
+- ADR object: `{"number": 7, "id": "0007", "slug": "...", "title": "...", "status": "...", "date": "YYYY-MM-DD", "path": "docs/adr/0007-....md", "tags": [], "scope": [], "review-by": null, "reviewed": null, "revisit-if": null, "relations": {"supersedes": [3]}, "meta": {}}`. `relations` includes derived inverses; `meta` holds other keys.
 - `adr check`: `{"ok": bool, "findings": [{"code": "...", "severity": "error|warning", "path": "...", "message": "..."}]}`.
 - Errors: `{"error": {"code": "not-found", "message": "...", "details": {}}}`.
 
@@ -89,3 +94,5 @@ stdout is exactly one JSON document.
 | `unknown-relation-key` | warning |
 | `scope-matches-nothing` | warning |
 | `scoped-change` | warning (only with `--diff REF`) |
+| `review-overdue` | warning |
+| `stale-decision` | warning (only with `drift-commits` set) |
