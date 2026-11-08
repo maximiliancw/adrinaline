@@ -222,7 +222,7 @@ def cmd_unlink(ctx: Ctx) -> None:
 
 def cmd_log(ctx: Ctx) -> None:
     adr = repo.resolve(ctx.load().adrs, ctx.args.ref)
-    rows = git.log(ctx.loc.root, adr.path)
+    rows = git.log(ctx.loc.root, adr.path, ctx.args.at)
     text = "\n".join(f"{r['date']}  {r['commit'][:8]}  {r['author']}  {r['subject']}" for r in rows)
     ctx.out.result(rows, text or "no commits yet")
 
@@ -495,7 +495,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("ref")
     p.add_argument("--to", type=int, required=True, metavar="N")
 
-    p = add("log", cmd_log, "show the git history of an ADR")
+    p = add("log", cmd_log, "show the git history of an ADR", reads_=True)
     p.add_argument("ref")
 
     p = add("for", cmd_for, "list the ADRs in force that govern each path", reads_=True)
@@ -511,6 +511,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--install", type=Path, metavar="DIR", help="write the skill and references into DIR"
     )
+    parser.set_defaults(
+        read_commands=[name for name, sp in sub.choices.items() if sp.get_default("reads")]
+    )
     return parser
 
 
@@ -521,8 +524,8 @@ def main(
 ) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    if args.at and not args.reads:
-        parser.error("--at is only valid for read commands (show, list, index, graph, check, for)")
+    if args.at is not None and not args.reads:
+        parser.error(f"--at is only valid for read commands ({', '.join(args.read_commands)})")
     if args.func is cmd_graph and args.rank and not args.json and args.format in ("mermaid", "dot"):
         parser.error("--rank supports only text and json output")
     cwd = (cwd or Path.cwd()).resolve()
