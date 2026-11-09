@@ -49,8 +49,13 @@ def numbers_on_refs(root: Path, directory: Path) -> dict[int, str]:
     refs = run(["for-each-ref", "--format=%(refname:short)", "refs/heads", "refs/remotes"], root)
     if rel is None or refs is None:
         return {}
+    # Exclude the current branch - we only care about numbers on OTHER branches
+    current = run(["rev-parse", "--abbrev-ref", "HEAD"], root)
+    current_branch = current.strip() if current else None
     found: dict[int, str] = {}
     for ref in refs.split():
+        if current_branch and ref == current_branch:
+            continue
         listing = run(["ls-tree", "--name-only", ref, "--", f"{rel}/"], root) or ""
         for line in listing.splitlines():
             if match := FILENAME_RE.match(PurePosixPath(line).name):
@@ -187,11 +192,26 @@ def changed_files(root: Path, base: str) -> list[str]:
 
 
 def working_changes(root: Path) -> list[str]:
-    # ponytail: porcelain v1 quotes odd filenames; switch to `-z` if such paths matter
-    out = run(["status", "--porcelain", "--untracked-files=all"], root) or ""
-    return sorted(
-        {line[3:].split(" -> ")[-1].strip('"') for line in out.splitlines() if len(line) > 3}
-    )
+    # Porcelain v2 with -z: NUL-terminated, no quoting. Rename entries are
+    # "R  new\0old\0", all others are "XY name\0".
+    out = run(["status", "--porcelain", "-z", "--untracked-files=all"], root) or ""
+    paths: set[str] = set()
+    i = 0
+    entries = out.split("\0")
+    while i < len(entries):
+        entry = entries[i]
+        if not entry:
+            i += 1
+            continue
+        if entry.startswith("R  "):
+            # Rename: "R  new\0old\0" - take the new name
+            paths.add(entry[3:])
+            i += 2  # skip old name
+        else:
+            # Normal: "XY name" - skip status bytes
+            paths.add(entry[3:])
+            i += 1
+    return sorted(paths)
 
 
 def tracked_files(root: Path) -> list[str]:

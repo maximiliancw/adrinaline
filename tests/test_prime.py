@@ -130,3 +130,21 @@ def test_prime_cli_needs_review(initialized):  # AC28
     assert [f["code"] for f in data["needs_review"]] == ["review-overdue", "stale-decision"]
     assert data["needs_review"][1]["path"] == "docs/adr/0003-db.md"
     assert "## Needs review" in w.adr("prime", "--budget", "5").out
+
+
+def test_prime_scope_hit_handles_quoted_filenames(initialized):  # AC for adr-mlxd
+    """A changed file with quotes/spaces in its name is matched by prime scope scoring."""
+    w = initialized
+    w.write_adr(2, "scoped", scope=["src/**"])
+    w.commit_all("add scoped ADR")
+    # Create a file with quotes and spaces in the name
+    odd_path = w.root / 'src/odd"file name.py'
+    odd_path.parent.mkdir(parents=True, exist_ok=True)
+    odd_path.write_text("# odd file\n")
+    w.git("add", str(odd_path))
+    w.git("commit", "-m", "add odd file")
+    # The scope hit should work regardless of the filename quoting
+    out = w.adr("prime", "--json").json()
+    # ADR 2 should be in the briefing due to scope hit on src/**
+    shown_numbers = [a["number"] for a in out["in_force"]]
+    assert 2 in shown_numbers
