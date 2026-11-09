@@ -24,7 +24,7 @@ Human output is coloured on a terminal; it is plain when stdout is not a TTY, wh
 | Command | Options | What it does |
 |---|---|---|
 | `init` | `--force` overwrites the template and ADR 0001 | create the ADR directory, template and ADR 0001 |
-| `new TITLE` | `--accepted`, `--tag TAG`, `--scope GLOB`, `--review-by DATE`, `--body-file PATH` (`-` = stdin), `--edit`, `--supersedes REF`, `--amends REF`, `--depends-on REF`, `--relates-to REF`, `--force` supersedes ADRs that are not accepted | create a new ADR |
+| `new [TITLE]` | `--accepted`, `--tag TAG`, `--scope GLOB`, `--review-by DATE`, `--body-file PATH` (`-` = stdin), `--edit`, `--supersedes REF`, `--amends REF`, `--depends-on REF`, `--relates-to REF`, `--force` supersedes ADRs that are not accepted | create a new ADR; on a terminal without TITLE, prompt for title, supersedes and scope |
 | `show REF` | `--raw` prints the file verbatim | show one ADR |
 | `list` | `--status STATUS`, `--tag TAG` | list ADRs |
 | `index` | | print a Markdown index table |

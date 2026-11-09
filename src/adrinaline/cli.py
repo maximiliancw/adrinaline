@@ -44,6 +44,25 @@ def today() -> dt.date:
     return dt.date.today()
 
 
+def _interactive() -> bool:
+    return sys.stdin.isatty() and sys.stdout.isatty()
+
+
+def _prompt(label: str, default: str = "") -> str:
+    try:
+        return input(f"{label}: ").strip() or default
+    except EOFError as exc:
+        raise AdrError("io", "input closed") from exc
+
+
+def _prompting(args: argparse.Namespace) -> bool:
+    return not args.json and not args.quiet and _interactive()
+
+
+def _confirm(label: str) -> bool:
+    return not _prompt(f"{label} [Y/n]").lower().startswith("n")
+
+
 def list_line(adr: Adr, out: Out) -> str:
     return f"{adr.id}  {out.status(adr.status, 10)}  {adr.date}  {adr.title}"
 
@@ -134,6 +153,14 @@ def cmd_new(ctx: Ctx) -> None:
     args, loc = ctx.args, ctx.loc
     if not loc.dir.is_dir():
         raise repo.no_dir(loc)
+    if args.title is None:  # main() only lets this through on a TTY
+        while not (title := _prompt("Title")):
+            pass
+        args.title = title
+        if not args.supersedes and (ref := _prompt("Supersedes (REF, empty for none)")):
+            args.supersedes = [ref]
+        if not args.scope and (globs := _prompt("Scope globs (space-separated, empty for none)")):
+            args.scope = globs.split()
     wanted = {r: getattr(args, r.replace("-", "_")) for r in ("supersedes", *LINKABLE)}
     targets: dict[str, list[Adr]] = {}
     number, skipped = repo.next_number(loc)
@@ -530,7 +557,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--force", action="store_true", help="overwrite the template and ADR 0001")
 
     p = add("new", cmd_new, "create a new ADR")
-    p.add_argument("title", type=nonblank)
+    p.add_argument("title", nargs="?", type=nonblank, help="prompted for on a terminal if omitted")
     p.add_argument("--accepted", action="store_true", help="create as accepted")
     p.add_argument("--tag", action="append", default=[])
     p.add_argument("--scope", action="append", default=[], help="repository-relative glob")
@@ -630,6 +657,8 @@ def main(
         parser.error(f"--at is only valid for read commands ({', '.join(args.read_commands)})")
     if args.func is cmd_graph and args.rank and not args.json and args.format in ("mermaid", "dot"):
         parser.error("--rank supports only text and json output")
+    if args.func is cmd_new and args.title is None and not _prompting(args):
+        parser.error("the following arguments are required: title")
     cwd = (cwd or Path.cwd()).resolve()
     env = os.environ if env is None else env
     try:
