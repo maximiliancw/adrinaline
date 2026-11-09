@@ -192,25 +192,17 @@ def changed_files(root: Path, base: str) -> list[str]:
 
 
 def working_changes(root: Path) -> list[str]:
-    # Porcelain v2 with -z: NUL-terminated, no quoting. Rename entries are
-    # "R  new\0old\0", all others are "XY name\0".
+    # Porcelain v1 with -z: NUL-terminated, no quoting. A rename or copy ("R" or
+    # "C" in either status column, e.g. "RM") is "XY new\0old\0"; all others "XY name\0".
     out = run(["status", "--porcelain", "-z", "--untracked-files=all"], root) or ""
     paths: set[str] = set()
-    i = 0
-    entries = out.split("\0")
-    while i < len(entries):
-        entry = entries[i]
+    entries = iter(out.split("\0"))
+    for entry in entries:
         if not entry:
-            i += 1
             continue
-        if entry.startswith("R  "):
-            # Rename: "R  new\0old\0" - take the new name
-            paths.add(entry[3:])
-            i += 2  # skip old name
-        else:
-            # Normal: "XY name" - skip status bytes
-            paths.add(entry[3:])
-            i += 1
+        paths.add(entry[3:])  # skip the two status bytes and the space
+        if entry[0] in "RC" or entry[1] in "RC":
+            next(entries, None)  # drop the old name
     return sorted(paths)
 
 
