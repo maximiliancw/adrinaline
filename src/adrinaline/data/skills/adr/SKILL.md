@@ -9,7 +9,7 @@ metadata:
 
 # Architecture Decision Records with `adr`
 
-ADRs are Markdown files in the repository (usually `docs/adr/NNNN-slug.md`) with YAML frontmatter. `adr` manages them. Every command accepts `--json`; prefer it when parsing. An installed copy of this skill goes stale after you upgrade adr: reinstall it with `adr skill --install DIR`. Details: `references/frontmatter.md`.
+ADRs are Markdown files in the repository (usually `docs/adr/NNNN-slug.md`) with YAML frontmatter. `adr` manages them. Every command accepts `--json`; prefer it when parsing. An installed copy of this skill goes stale after you upgrade adr: reinstall it with `adr skill --install DIR` (or `npx skills update`, or update the plugin, if you installed it that way). Details: `references/frontmatter.md`.
 
 ## At the start of a task
 

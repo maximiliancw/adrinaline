@@ -1,0 +1,12 @@
+{
+  "name": "adrinaline",
+  "description": "The adrinaline plugin for git-native Architecture Decision Records.",
+  "owner": { "name": "Max Wolf" },
+  "plugins": [
+    {
+      "name": "adrinaline",
+      "source": "./",
+      "description": "The adr skill plus a SessionStart hook that runs `adr prime`."
+    }
+  ]
+}

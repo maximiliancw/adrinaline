@@ -225,6 +225,21 @@ Git access is read-only, and `adr log` only sees committed changes, so commit fi
 
 Codex, Cursor and Copilot all read `.agents/skills/`, so one install there covers all three. Rerun the install after upgrading `adr`; `adr check` reports `stale-skill` for an installed skill from another version.
 
+Or install the skill without `adr` writing files, from any agent supported by the [skills CLI](https://github.com/vercel-labs/skills):
+
+```sh
+npx skills add maximiliancw/adrinaline
+```
+
+In Claude Code, the plugin adds the skill plus a SessionStart hook that runs `adr prime` (silent when `adr` is missing or the repo has no ADRs):
+
+```text
+/plugin marketplace add maximiliancw/adrinaline
+/plugin install adrinaline@adrinaline
+```
+
+Both still need the `adr` CLI on `PATH`. Update those copies with `npx skills update` or `/plugin update`; `adr check` leaves them out of `stale-skill`.
+
 Or add one line to `AGENTS.md` (or your agent's equivalent):
 
 ```markdown

@@ -3,7 +3,7 @@ from adrinaline.repo import data_text
 
 
 def test_skill_and_prime_rules_share_the_workflow():
-    skill = data_text("SKILL.md")
+    skill = data_text("skills/adr/SKILL.md")
     for phrase in (
         "adr for <path>",
         "--body-file -",
