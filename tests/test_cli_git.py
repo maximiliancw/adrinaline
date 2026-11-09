@@ -189,3 +189,13 @@ def test_read_dir_at_git_failures(monkeypatch, tmp_path):
         with pytest.raises(AdrError) as ei:
             git.read_dir_at(tmp_path, "HEAD", tmp_path / "docs/adr")
         assert ei.value.code == code
+
+
+def test_working_changes_skips_old_name_of_edited_rename(ws):
+    from adrinaline import git
+
+    ws.write("src/db/a.py", "a\n")
+    ws.commit_all()
+    ws.git("mv", "src/db/a.py", "src/db/b.py")
+    ws.write("src/db/b.py", "b\n")  # status "RM new\0old\0"
+    assert git.working_changes(ws.root) == ["src/db/b.py"]
