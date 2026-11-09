@@ -88,7 +88,7 @@ End the commit message with a trailer naming the ADRs the change follows: `ADR: 
 
 ## Before finishing
 
-Run `adr check`. Fix every error it reports.
+Run `adr check` (`--fix` repairs mechanical findings). Fix every error it reports.
 
 ## If check fails
 
