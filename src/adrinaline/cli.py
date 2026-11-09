@@ -472,8 +472,9 @@ def cmd_check(ctx: Ctx) -> int:
         raise AdrError("no-git", "--diff needs a git repository")
     at = getattr(ctx.args, "at", None)
     s = ctx.load()
-    fixed = fix.apply(s, ctx.loc, today()) if ctx.args.fix else []
-    if fixed:
+    fixed: list[fix.Fix] = []
+    while ctx.args.fix and (batch := fix.apply(s, ctx.loc, today())):
+        fixed += batch
         s = ctx.load()
     changed = range_commits = uncommitted = None
     if root and ctx.args.diff:

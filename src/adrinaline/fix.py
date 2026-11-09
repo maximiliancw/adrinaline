@@ -18,7 +18,10 @@ class Fix:
 
 
 def apply(s: AdrSet, loc: Location, today: dt.date) -> list[Fix]:
-    """Repair the codes ADR 0010 lists, write the files, return what changed."""
+    """Repair the codes ADR 0010 lists, write the files, return what changed.
+
+    Renamed keys return early; call again on a reloaded set until it returns nothing.
+    """
     fixes: list[Fix] = []
     changed: dict[int, Adr] = {}
 
@@ -26,6 +29,18 @@ def apply(s: AdrSet, loc: Location, today: dt.date) -> list[Fix]:
         changed[id(adr)] = adr
         fixes.append(Fix(code, str(adr.path), message))
 
+    for adr in s.adrs:
+        for key in [k for k in adr.meta if k in SNAKE_KEYS]:
+            new = key.replace("_", "-")
+            if new in adr.meta:
+                continue
+            position = list(adr.meta).index(key)
+            adr.meta.insert(position, new, adr.meta.pop(key))
+            done(adr, "unknown-relation-key", f"{adr.id} `{key}` -> `{new}`")
+    if changed:  # relations are parsed at load; the caller reloads and calls again
+        for adr in changed.values():
+            repo.save(adr)
+        return fixes
     nodes = AdrGraph(s.adrs).nodes
     for adr in s.adrs:
         for name, inverse in (("supersedes", "superseded-by"), ("superseded-by", "supersedes")):
@@ -46,14 +61,6 @@ def apply(s: AdrSet, loc: Location, today: dt.date) -> list[Fix]:
         if adr.relations["superseded-by"] and adr.status is not Status.SUPERSEDED:
             repo.set_status(adr, Status.SUPERSEDED, today)
             done(adr, "status-mismatch", f"{adr.id} status: superseded")
-    for adr in s.adrs:
-        for key in [k for k in adr.meta if k in SNAKE_KEYS]:
-            new = key.replace("_", "-")
-            if new in adr.meta:
-                continue
-            position = list(adr.meta).index(key)
-            adr.meta.insert(position, new, adr.meta.pop(key))
-            done(adr, "unknown-relation-key", f"{adr.id} `{key}` -> `{new}`")
     for adr in changed.values():
         repo.save(adr)
     if not loc.template.is_file():

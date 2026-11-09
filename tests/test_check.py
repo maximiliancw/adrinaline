@@ -345,3 +345,10 @@ def test_fix_output_and_usage(initialized):
     CLI_CASES["no-template"](initialized)
     gitlab = initialized.adr("check", "--fix", "--format", "gitlab")
     assert json.loads(gitlab.out) == []
+
+
+def test_fix_repairs_what_a_renamed_key_reveals(initialized):
+    initialized.write("docs/adr/0002-x.md", f"{FRONT}superseded_by: [3]\n---\n# X\n")
+    initialized.write("docs/adr/0003-y.md", f"{FRONT}supersedes: [2]\n---\n# Y\n")
+    data = initialized.adr("check", "--fix", "--json").json()
+    assert data["findings"] == []
