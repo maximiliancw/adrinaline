@@ -35,7 +35,7 @@ agents both read reliably.
 ### Non-goals (v1)
 
 - Importing existing ADR sets (adr-tools, Nygard style). `adr check` reports
-  what does not conform; fixing is manual.
+  what does not conform; fixing an import is manual (`check --fix` only repairs mechanical findings, §11).
 - TOML frontmatter.
 - A plugin system, an MCP server, a web UI or a static-site generator.
 - An interactive graph viewer. Planned for v2 as `adr graph --format html`
@@ -80,7 +80,7 @@ fragile. No code is copied. Ideas adopted:
 ```
 src/adrinaline/
   __init__.py      version
-  model.py         Adr, Status, Relation; pydantic models and transition rules
+  model.py         Adr, Status; pydantic models and transition rules
   frontmatter.py   split/parse/render Markdown + YAML frontmatter (ruamel)
   repo.py          locate ADR dir, load all ADRs, resolve references,
                    allocate numbers, atomic writes, relation updates
@@ -90,16 +90,20 @@ src/adrinaline/
   prime.py         briefing: scoring and budgeted selection
   drift.py         decision health: churn per ADR since its baseline, review findings
   check.py         validation rules returning Finding objects
+  fix.py           repairs for mechanical findings (`check --fix`)
   git.py           thin wrappers over the `git` executable (read-only)
   output.py        human vs JSON rendering, error envelope, exit codes
   cli.py           argparse wiring; one small function per command
-                   (`cmd_<name>`, so `adr for` maps to `cmd_for`)
-  data/            template.md, 0001 ADR text, SKILL.md, references/
+                   (`cmd_<name>`, so `adr for` maps to `cmd_for`; accept,
+                   reject and deprecate share `_set_status()`)
+  data/            template.md, 0001 ADR text, skills/adr/SKILL.md, references/
 tests/
 ```
 
-`cli.py` holds no domain logic; every command is a call into `repo`/`check`
-plus a call into `output`. `repo` loads the files once per command into an
+`cli.py` keeps the domain rules in `repo`, `check`, `graph` and `fix`: a command
+is mostly a call into them plus a call into `output`. It does hold the agent
+wiring of §14 (`_skill_dirs`, `_install_skill`, `_installed_skills`) and the
+supersede and cycle precheck of `cmd_new`. `repo` loads the files once per command into an
 `AdrGraph`; `check`, `prime`, `graph`, `show`, `renumber` and relation
 commands all query that graph instead of reading files themselves.
 
@@ -284,8 +288,8 @@ stdlib `graphlib`. Derived views:
 - **Rank:** PageRank over the graph (damping 0.85, power iteration until the
   change is below 1e-9 or 100 iterations). Edges `depends-on` and `amends`
   pass weight to their target, `relates-to` both ways; `supersedes` is
-  excluded so a replaced ADR does not inherit importance. Hand-rolled, about
-  15 lines. High rank means many decisions build on this one ("keystone").
+  excluded so a replaced ADR does not inherit importance. Hand-rolled.
+  High rank means many decisions build on this one ("keystone").
 - **Governing ADRs of a path:** ADRs in force whose `scope` contains a glob
   matching the path (`PurePath.full_match`, repository-relative, POSIX
   separators).
@@ -294,7 +298,8 @@ stdlib `graphlib`. Derived views:
   baseline date (a later day, so a review today clears today's commits) that
   touched at least one file matching its `scope` (same matching as above).
   One `git log --since=<earliest baseline> --name-only --no-merges` call over
-  the whole repository serves every ADR; with `--at REF` the log starts at REF
+  the whole repository serves every ADR (`--since` starts a day early to allow
+  for committer time zones; `drift.compute` makes the exact comparison); with `--at REF` the log starts at REF
   instead of `HEAD`. ADRs without a `scope` have no drift.
 
 ### Revisions (`--at REF`)
@@ -326,12 +331,12 @@ Global flags: `--json` (machine output), `--dir PATH` (overrides §5),
 | `adr review REF [--until DATE]` | Record a review: set `reviewed` to today and, with `--until`, `review-by` to DATE (`bad-date` if not ISO). Any status. Prints the ADR by number and title with its review date; `--json` prints the ADR object. |
 | `adr drift [REF]...` | Churn per ADR in force that has a `scope` (§8), or only for the given REFs: one line per ADR, highest churn first: number, title, commits and distinct files since the baseline, and the date and subject of the last commit. A closing line counts the ADRs in force without a `scope` (omitted when there are none). `--json` is a list of `{"number", "id", "title", "baseline", "review-by", "revisit-if", "commits", "files": [...], "last": {"commit", "date", "subject"} \| null}`. Fails with `no-git` outside a repository. |
 | `adr graph [REF] [--relation R]... [--depth N] [--reverse] [--rank] [--format text\|mermaid\|dot\|json]` | Render the graph: the whole set, or the subgraph reachable from REF (`--reverse` follows inverse edges, by default only `depends-on` and `amends`, giving the impact set). `text` (default) is an indented, deduplicated tree; `mermaid` renders in GitHub/GitLab Markdown; `dot` feeds Graphviz; `json` is `{"nodes": [{"number", "id", "slug", "title", "status", "date", "tags", "path"}], "edges": [{"from", "to", "relation"}]}`. Node styling encodes status in mermaid and dot. `--rank` orders the nodes by rank: text output becomes a flat list, one `rank  NNNN title [status]` line per node, and JSON nodes gain a `rank` value; `--rank` with `mermaid` or `dot` is a usage error unless `--json` is given. |
-| `adr check [--strict] [--diff REF] [--format text\|github\|gitlab]` | Validate the set (§11). Exit 1 if any error (or any warning with `--strict`); notes never fail. `--diff REF` also reports every changed file (`git diff --name-only REF`, plus untracked files) governed by an ADR in force, as `scoped-change` findings naming the ADRs to review (a file whose commits all cite an ADR governing it or are exempt, and that has no uncommitted change, is not reported), and judges every non-merge commit in `REF..HEAD` that touches such a file by its trailers (§13): `uncited-change` or `exempt-change`. CI gate: `adr check --diff origin/main --strict`. `--format` prints CI annotations (see CI annotations). |
+| `adr check [--strict] [--fix] [--diff REF] [--format text\|github\|gitlab]` | Validate the set (§11). Exit 1 if any error (or any warning with `--strict`); notes never fail. `--diff REF` also reports every changed file (`git diff --name-only REF`, plus untracked files) governed by an ADR in force, as `scoped-change` findings naming the ADRs to review (a file whose commits all cite an ADR governing it or are exempt, and that has no uncommitted change, is not reported), and judges every non-merge commit in `REF..HEAD` that touches such a file by its trailers (§13): `uncited-change` or `exempt-change`. CI gate: `adr check --diff origin/main --strict`. `--format` prints CI annotations (see CI annotations). `--fix` repairs mechanical findings first (§11). |
 | `adr trace REF` | Commits whose `ADR:` trailer (§13) names REF, newest first: date, short hash, subject. Only non-merge commits reachable from HEAD (with `--at REV`, from REV). No citing commit prints nothing and exits 0. `--json` is a list of `{"commit", "date", "subject", "adrs": [numbers]}`. Fails with `no-git` outside a repository. |
 | `adr for PATH... [--all]` | List the ADRs in force that govern each path (§8). `--all` includes `proposed`. |
 | `adr renumber REF --to N` | Rename the file, rewrite every relation that points at the old number, and rewrite Markdown links of the form `NNNN-slug.md` in all ADR bodies. Refuses if N is taken. If the old number is duplicated, numeric relations are left alone (they keep pointing at the remaining file) and only filename links are rewritten. |
-| `adr log REF` | `git log --follow` for the ADR file (date, author, subject). With `--at REV`, the ADR is looked up at REV and only commits reachable from REV are listed. |
-| `adr prime [--budget N]` | Print the agent briefing (§12), optionally limited to about N words. |
+| `adr log REF` | `git log --follow` for the ADR file (date, short commit hash, author, subject). With `--at REV`, the ADR is looked up at REV and only commits reachable from REV are listed. |
+| `adr prime [--budget N]` | Print the agent briefing (§12), optionally limiting the decisions-in-force list to about N words. |
 | `adr skill [--install DIR]` | Print the bundled `SKILL.md`. With `--install`, write `SKILL.md` and `references/frontmatter.md` into the skill directory `DIR` (created with parents) and print the written paths. |
 
 Every mutating command prints a short summary of what changed in human mode:
@@ -398,8 +403,14 @@ Each finding has a stable `code`, a `severity` (`error`, `warning` or
   "status": "…", "date": "YYYY-MM-DD", "path": "docs/adr/0007-….md",
   "tags": [], "scope": [], "review-by": "YYYY-MM-DD" | null, "reviewed": "YYYY-MM-DD" | null,
   "revisit-if": "…" | null, "relations": {"supersedes": [3], …}, "meta": {…other keys}}`.
-  `show` adds `"body"`.
+  `show` adds `"body"`, and `"successor"` (number at the end of the
+  `superseded-by` chain) when the ADR is superseded. `new` adds `"skipped"`
+  (`{"0003": "origin/main"}`: numbers taken on other refs, §10; `{}` if none).
 - Lists are JSON arrays. `check` returns `{"ok": bool, "findings": […]}`.
+- `prime` returns `{"dir", "counts" (ADRs per status present), "in_force" (ADR
+  objects shown), "omitted" (in-force ADRs left out by `--budget`),
+  "needs_review" (findings), "proposed" (ADR objects), "rules" (the rules text
+  of the briefing's last section)}`.
 - Errors: `{"error": {"code": "not-found", "message": "…", "details": {…}}}`.
 
 ### Human output

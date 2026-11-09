@@ -59,7 +59,7 @@ stdout is exactly one JSON document.
 - `adr list`: array of ADR objects.
 - `adr show REF`: one ADR object plus `"body"`.
 - ADR object: `{"number": 7, "id": "0007", "slug": "...", "title": "...", "status": "...", "date": "YYYY-MM-DD", "path": "docs/adr/0007-....md", "tags": [], "scope": [], "review-by": null, "reviewed": null, "revisit-if": null, "relations": {"supersedes": [3]}, "meta": {}}`. `relations` includes derived inverses; `meta` holds other keys.
-- `adr check`: `{"ok": bool, "findings": [{"code": "...", "severity": "error|warning|note", "path": "...", "message": "..."}]}`.
+- `adr check`: `{"ok": bool, "findings": [{"code": "...", "severity": "error|warning|note", "path": "...", "message": "..."}]}`; with `--fix` it adds `"fixed": [{"code": "...", "path": "...", "message": "..."}]`.
 - Errors: `{"error": {"code": "not-found", "message": "...", "details": {}}}`.
 
 ## Exit codes
@@ -69,7 +69,7 @@ stdout is exactly one JSON document.
 | 0 | Success |
 | 1 | `check` found problems (any error; any warning with `--strict`; notes never) |
 | 2 | Usage error |
-| 3 | Domain error: `not-found`, `ambiguous`, `invalid-transition`, `cycle`, `self-relation`, `no-adr-dir`, `exists`, `no-git`, `bad-revision` |
+| 3 | Domain error: `not-found`, `ambiguous`, `invalid-transition`, `cycle`, `self-relation`, `no-adr-dir`, `exists`, `no-git`, `bad-revision`, `bad-scope`, `bad-config`, `bad-template`, `bad-filename`, `bad-relation`, `bad-date`, `io` |
 
 ## Check codes
 

@@ -11,7 +11,7 @@
 |---|---|
 | `--json` | print exactly one JSON document on stdout; diagnostics go to stderr |
 | `--dir DIR` | use DIR as the ADR directory (skips discovery) |
-| `-q`, `--quiet` | no output |
+| `-q`, `--quiet` | no output (except the CI report of `check --format github\|gitlab`) |
 | `--at REF` | read ADRs as of a git revision (read commands only) |
 | `--version` | print the version |
 
@@ -24,21 +24,21 @@ Human output is coloured on a terminal; it is plain when stdout is not a TTY, wh
 | Command | Options | What it does |
 |---|---|---|
 | `init` | `--force` overwrites the template and ADR 0001; `--agents` adds the `adr prime` line to `AGENTS.md` and installs the skill into the skill dir of each detected agent (`.claude/skills/adr` for Claude Code, also detected by `~/.claude/CLAUDE.md`, `.agents/skills/adr` for Codex, Cursor and Copilot) without asking | create the ADR directory, template and ADR 0001, print the next steps; on a terminal, offer to wire the coding agent |
-| `new [TITLE]` | `--accepted`, `--tag TAG`, `--scope GLOB`, `--review-by DATE`, `--body-file PATH` (`-` = stdin), `--edit`, `--supersedes REF`, `--amends REF`, `--depends-on REF`, `--relates-to REF`, `--force` supersedes ADRs that are not accepted | create a new ADR; on a terminal without TITLE, prompt for title, supersedes and scope |
+| `new [TITLE]` | `--accepted`, `--tag TAG...`, `--scope GLOB...`, `--review-by DATE`, `--body-file PATH` (`-` = stdin), `--edit`, `--supersedes REF...`, `--amends REF...`, `--depends-on REF...`, `--relates-to REF...`, `--force` supersedes ADRs that are not accepted | create a new ADR; on a terminal without TITLE, prompt for title, supersedes and scope |
 | `show REF` | `--raw` prints the file verbatim | show one ADR |
-| `list` | `--status STATUS`, `--tag TAG` | list ADRs |
+| `list` | `--status STATUS...`, `--tag TAG...` | list ADRs |
 | `index` | | print a Markdown index table |
 | `accept REF` / `reject REF` / `deprecate REF` | `--force` allows any transition | set an ADR's status |
 | `review REF` | `--until DATE` also sets `review-by` | record that an ADR was reviewed today (`reviewed: <today>`) |
 | `supersede OLD --by NEW` | `--force` supersedes an ADR that is not accepted | mark OLD as superseded by NEW |
 | `link REF RELATION REF` / `unlink …` | `RELATION` is `amends`, `depends-on` or `relates-to` | add or remove a relation |
-| `graph [REF]` | `--relation R`, `--depth N`, `--reverse`, `--format text\|mermaid\|dot\|json`, `--rank` | render the ADR graph |
+| `graph [REF]` | `--relation R...`, `--depth N` (default: unlimited), `--reverse`, `--format text\|mermaid\|dot\|json`, `--rank` (a usage error with `mermaid` or `dot` unless `--json`) | render the ADR graph |
 | `renumber REF --to N` | | give an ADR a new number and update references |
 | `log REF` | | show the git history of an ADR |
 | `trace REF` | | list the commits whose `ADR:` trailer cites the ADR, newest first |
 | `for PATH…` | `--all` includes proposed ADRs | list the ADRs in force that govern each path |
 | `drift [REF…]` | | churn per ADR in force with a `scope`: commits and files since its baseline (the later of `date` and `reviewed`), last commit; `--json` for details |
-| `check` | `--strict` fails on warnings (never on notes), `--diff REF` reports changed files governed by ADRs and commits that cite none of them, `--format github\|gitlab` prints CI annotations instead of text, `--fix` repairs mechanical findings first (ADR 0010) | validate all ADRs |
+| `check` | `--strict` fails on warnings (never on notes), `--diff REF` reports changed files governed by ADRs and commits that cite none of them, `--format github\|gitlab` prints CI annotations instead of text (a usage error with `--json`; `-q` does not silence it), `--fix` repairs mechanical findings first (ADR 0010; a usage error with `--at`) | validate all ADRs |
 | `prime` | `--budget N` limits decisions in force to about N words | print the agent briefing |
 | `skill` | `--install DIR` writes the skill and references into DIR | print the bundled agent skill |
 
@@ -57,7 +57,7 @@ Read commands (`--at` allowed): `show`, `list`, `index`, `graph`, `log`,
 Domain error codes: `not-found`, `ambiguous`, `invalid-transition`, `cycle`,
 `self-relation`, `no-adr-dir`, `exists`, `no-git`, `bad-revision`,
 `bad-scope`, `bad-config`, `bad-template`, `bad-filename`,
-`bad-relation`, `io`, or a check code such as
+`bad-relation`, `bad-date` (`new --review-by`, `review --until`), `io`, or a check code such as
 `no-title` when `new --edit` re-reads the edited file.
 
 ## Check codes
