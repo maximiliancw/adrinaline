@@ -15,7 +15,8 @@
 | `--at REF` | read ADRs as of a git revision (read commands only) |
 | `--version` | print the version |
 
-An ADR `REF` is a number in any padding (`7`, `0007`) or a case-insensitive substring of the slug; `--at REF` and `--diff REF` take a git revision.
+An ADR `REF` is a number in any padding (`7`, `0007`), a slug (`use-postgresql`), a title (`"Use PostgreSQL"`, slugified before matching) or a substring of the slug; an exact slug wins over substring matches, and a miss suggests close slugs. `--at REF` and `--diff REF` take a git revision.
+
 
 ## Commands
 

@@ -51,12 +51,36 @@ def test_resolve():
     ).adrs
     assert repo.resolve(adrs, " 001 ").number == 1
     assert repo.resolve(adrs, "PostGIS").number == 2
+    assert repo.resolve(adrs, "Use PostGIS").number == 2  # title form slugifies
     with pytest.raises(AdrError) as exc:
         repo.resolve(adrs, "use-post")
     assert exc.value.code == "ambiguous"
     with pytest.raises(AdrError) as exc:
         repo.resolve(adrs, "9")
     assert exc.value.code == "not-found"
+    with pytest.raises(AdrError) as exc:
+        repo.resolve(adrs, "use-postgrs")
+    assert exc.value.code == "not-found"
+    assert "did you mean 0001-use-postgres" in exc.value.message
+    assert exc.value.details["candidates"] == ["0001-use-postgres.md", "0002-use-postgis.md"]
+    with pytest.raises(AdrError) as exc:
+        repo.resolve(adrs, "use-postgix")  # closest first, not file order
+    assert exc.value.details["candidates"] == ["0002-use-postgis.md", "0001-use-postgres.md"]
+    with pytest.raises(AdrError) as exc:
+        repo.resolve(adrs, "!!!")
+    assert exc.value.code == "not-found" and exc.value.details["candidates"] == []
+
+
+def test_resolve_exact_slug_beats_prefix():
+    good = "---\nstatus: accepted\ndate: 2026-01-15\n---\n# A\n"
+    adrs = repo.parse_all(
+        [(Path("d/0001-use-postgres.md"), good), (Path("d/0002-use-postgres-17.md"), good)]
+    ).adrs
+    assert repo.resolve(adrs, "use-postgres").number == 1
+    assert repo.resolve(adrs, "Use Postgres 17").number == 2
+    with pytest.raises(AdrError) as exc:
+        repo.resolve(adrs, "postgres")
+    assert exc.value.code == "ambiguous"
 
 
 def test_render_new_replaces_body_and_merges_tags():

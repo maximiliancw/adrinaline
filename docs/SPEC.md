@@ -219,10 +219,15 @@ mistyped configuration fails with `bad-config`.
 Wherever a command takes an ADR reference `REF`:
 
 - An integer in any padding (`7`, `07`, `0007`) matches by number.
-- Anything else matches as a case-insensitive substring of the slug.
+- Anything else is slugified (§4) and matched against the slugs: an exact
+  slug match wins; otherwise every slug containing it matches. So
+  `"Use PostgreSQL"`, `use-postgresql` and `postgres` all find
+  `0007-use-postgresql.md`.
 - Leading/trailing whitespace is stripped.
-- Zero matches: error `not-found`. More than one: error `ambiguous`, listing
-  candidates. A duplicated number is `ambiguous` too.
+- Zero matches: error `not-found`; its message and `details.candidates` name
+  up to three close slugs (`difflib`, cutoff 0.6), so a typo is never resolved
+  silently. More than one: error `ambiguous`, listing candidates. A duplicated
+  number is `ambiguous` too.
 
 ## 7. Status lifecycle
 
@@ -548,3 +553,7 @@ Each criterion is an automated test.
 28. `adr prime` on the fixtures of 25 and 27 prints a "Needs review" section
     naming both ADRs and their repair command; without them the section is
     absent and `--budget` output is unchanged.
+30. `adr show "Use PostgreSQL"` and `adr show use-postgresql` resolve
+    `0002-use-postgresql.md` even when `0003-use-postgresql-17.md` exists;
+    `adr show use-postgrs` fails with `not-found` naming `0002-use-postgresql`
+    as a candidate.

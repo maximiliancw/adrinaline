@@ -388,3 +388,15 @@ def test_show_prints_review_line(initialized):
     w.write_adr(2, "x", review_by="2099-01-01", revisit_if="load doubles")
     out = w.adr("show", "2").out
     assert "review-by: 2099-01-01" in out and "revisit-if: load doubles" in out
+def test_title_form_reference_and_suggestion(initialized):  # AC30
+    initialized.adr("new", "Use PostgreSQL")
+    initialized.adr("new", "Use PostgreSQL 17")
+    for ref in ("Use PostgreSQL", "use-postgresql"):
+        assert initialized.adr("show", ref, "--json").json()["number"] == 2
+    result = initialized.adr("show", "use-postgrs", "--json")
+    error = result.json()["error"]
+    assert result.code == 3 and error["code"] == "not-found"
+    assert "did you mean 0002-use-postgresql" in error["message"]
+    assert error["details"]["candidates"][0] == "0002-use-postgresql.md"
+
+
