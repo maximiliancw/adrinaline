@@ -4,7 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from adrinaline.check import run_checks
+from adrinaline import __version__
+from adrinaline.check import _release, run_checks
 from adrinaline.output import github_annotation, gitlab_report
 from adrinaline.repo import parse_all
 
@@ -157,7 +158,24 @@ CLI_CASES = {
     "exempt-change": _exempt,
     "review-overdue": lambda w: w.write_adr(2, "x", review_by="2000-01-01"),
     "stale-decision": _stale,
+    "stale-skill": lambda w: w.write(
+        ".claude/skills/adr/SKILL.md", "---\nname: adr\nmetadata:\n  version: 0.0.1\n---\n"
+    ),
 }
+
+
+def test_stale_skill_only_for_an_older_installed_version(initialized):
+    assert initialized.adr("skill", "--install", ".agents/skills/adr").code == 0
+    assert initialized.adr("check", "--json").json()["findings"] == []
+    release = _release(__version__)
+    path = initialized.root / ".agents/skills/adr/SKILL.md"
+    path.write_text(re.sub(r"version: .*", f'version: "{release}.dev1+gabc"', path.read_text()))
+    assert initialized.adr("check", "--json").json()["findings"] == []  # same release
+    CLI_CASES["stale-skill"](initialized)
+    [finding] = initialized.adr("check", "--json").json()["findings"]
+    assert finding["path"] == ".claude/skills/adr/SKILL.md"
+    assert "0.0.1" in finding["message"]
+    assert "adr skill --install .claude/skills/adr" in finding["message"]
 
 
 def spec_severities() -> dict[str, str]:

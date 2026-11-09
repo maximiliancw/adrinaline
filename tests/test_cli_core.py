@@ -4,6 +4,7 @@ import json
 import pytest
 
 TODAY = dt.date.today().isoformat()
+FRONTMATTER_REF = "references/frontmatter.md"
 
 
 def test_init_creates_template_and_first_adr(ws):  # AC1
@@ -401,15 +402,36 @@ def test_init_agents_wires_agents_md_and_skill_idempotently(ws):  # AC29
     data = ws.adr("init", "--agents", "--json").json()
     assert data["agents"] == {
         "instructions": "AGENTS.md",
-        "skill": [".claude/skills/adr/SKILL.md", ".claude/skills/adr/references/frontmatter.md"],
+        "skill": [".agents/skills/adr/SKILL.md", ".agents/skills/adr/references/frontmatter.md"],
     }
     assert "adr skill --install" not in "".join(data["next"])
     agents = (ws.root / "AGENTS.md").read_text()
     assert agents == "Run `adr prime` at the start of every session and follow the ADRs it lists.\n"
-    assert "name: adr" in (ws.root / ".claude/skills/adr/SKILL.md").read_text()
+    assert "name: adr" in (ws.root / ".agents/skills/adr/SKILL.md").read_text()
     again = ws.adr("init", "--agents", "--json").json()
     assert again["agents"] == {"instructions": None, "skill": []}
     assert (ws.root / "AGENTS.md").read_text() == agents
+
+
+@pytest.mark.parametrize(
+    ("markers", "dirs"),
+    [
+        ([], [".agents"]),
+        (["CLAUDE.md"], [".claude"]),
+        ([".claude/settings.json"], [".claude", ".agents"]),
+        ([".agents/x"], [".agents"]),
+        ([".cursor/rules"], [".agents"]),
+        ([".github/workflows/ci.yml"], [".agents"]),
+        (["CLAUDE.md", ".github/x", ".cursor/x"], [".claude", ".agents"]),
+    ],
+)
+def test_init_agents_installs_the_skill_where_detected_agents_read_it(ws, markers, dirs):
+    for marker in markers:
+        ws.write(marker, "x\n")
+    skill = ws.adr("init", "--agents", "--json").json()["agents"]["skill"]
+    assert skill == [f"{d}/skills/adr/{n}" for d in dirs for n in ("SKILL.md", FRONTMATTER_REF)]
+    assert {p.parts[-4] for p in ws.root.glob(".*/skills/adr/SKILL.md")} == set(dirs)
+    assert ws.adr("init", "--agents", "--json").json()["agents"]["skill"] == []
 
 
 def test_init_agents_appends_to_existing_claude_md(ws):  # AC29

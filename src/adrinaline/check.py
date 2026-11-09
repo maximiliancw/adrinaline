@@ -1,10 +1,11 @@
 """Validation rules for `adr check`. Each rule returns Finding objects."""
 
 import datetime as dt
+import re
 from collections import defaultdict
 from pathlib import PurePosixPath
 
-from adrinaline import drift
+from adrinaline import __version__, drift
 from adrinaline.git import Commit
 from adrinaline.graph import ACYCLIC, AdrGraph
 from adrinaline.model import STORED_RELATIONS, Adr, Finding, Status
@@ -179,6 +180,26 @@ def _trailers(graph: AdrGraph, commits: list[Commit]) -> tuple[list[Finding], se
     return found, {f for f, ok in passed.items() if ok}
 
 
+def _release(version: str | None) -> str | None:
+    """Leading numeric segments: a dev build 0.3.1.dev16+gabc counts as 0.3.1."""
+    match = re.match(r"\d+(\.\d+)*", version or "")
+    return match[0] if match else None
+
+
+def _stale_skills(skills: dict[str, str | None]) -> list[Finding]:
+    return [
+        Finding(
+            "stale-skill",
+            "warning",
+            f"{d}/SKILL.md",
+            f"installed skill is version {version or 'unknown'}, adr is {__version__}; "
+            f"reinstall with `adr skill --install {d}`",
+        )
+        for d, version in skills.items()
+        if _release(version) != _release(__version__)
+    ]
+
+
 def run_checks(
     s: AdrSet,
     *,
@@ -191,6 +212,7 @@ def run_checks(
     drift_commits: int = 0,
     range_commits: list[Commit] | None = None,
     uncommitted: list[str] | None = None,
+    skills: dict[str, str | None] | None = None,
 ) -> list[Finding]:
     graph = AdrGraph(s.adrs)
     cited, traced = _trailers(graph, range_commits or [])
@@ -205,6 +227,7 @@ def run_checks(
         *_relations(s, graph),
         *_unknown_keys(s),
         *_scopes(s, graph, tracked, changed),
+        *_stale_skills(skills or {}),
         *cited,
         *drift.review_findings(
             in_force,

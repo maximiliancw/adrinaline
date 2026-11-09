@@ -22,9 +22,9 @@ def test_init_asks_before_each_wiring_step(tmp_path, terminal, capsys):
     terminal("n", "y")
     assert cli.main(["init"], cwd=tmp_path, env=ENV) == 0
     assert not (tmp_path / "AGENTS.md").exists()
-    assert (tmp_path / ".claude/skills/adr/SKILL.md").exists()
+    assert (tmp_path / ".agents/skills/adr/SKILL.md").exists()
     out = capsys.readouterr().out
-    assert "wrote .claude/skills/adr/SKILL.md" in out and "adr skill --install" not in out
+    assert "wrote .agents/skills/adr/SKILL.md" in out and "adr skill --install" not in out
 
 
 def test_new_prompts_for_title_supersedes_and_scope(tmp_path, terminal):

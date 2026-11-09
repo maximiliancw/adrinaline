@@ -98,3 +98,4 @@ stdout is exactly one JSON document.
 | `exempt-change` | note (only with `--diff REF`) |
 | `review-overdue` | warning |
 | `stale-decision` | warning (only with `drift-commits` set) |
+| `stale-skill` | warning (installed skill from another `adr` release) |
