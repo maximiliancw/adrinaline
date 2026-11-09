@@ -2,6 +2,7 @@
 
 import datetime as dt
 import os
+import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -57,11 +58,20 @@ def numbers_on_refs(root: Path, directory: Path) -> dict[int, str]:
     return found
 
 
+def verify_rev(root: Path, rev: str) -> None:
+    """Fail with bad-revision unless rev names a commit; `--end-of-options` keeps a rev such as
+    `--output=f` from reaching git as an option."""
+    if (
+        run(["rev-parse", "--verify", "--quiet", "--end-of-options", f"{rev}^{{commit}}"], root)
+        is None
+    ):
+        raise AdrError("bad-revision", f"unknown git revision: {rev}", rev=rev)
+
+
 def read_dir_at(root: Path | None, rev: str, directory: Path) -> list[tuple[Path, str]]:
     if root is None:
         raise AdrError("no-git", "--at needs a git repository")
-    if run(["rev-parse", "--verify", "--quiet", f"{rev}^{{commit}}"], root) is None:
-        raise AdrError("bad-revision", f"unknown git revision: {rev}", rev=rev)
+    verify_rev(root, rev)
     rel = _rel(root, directory)
     if rel is None:
         raise AdrError(
@@ -116,41 +126,59 @@ class Commit:
     date: dt.date  # committer date
     subject: str
     files: tuple[str, ...]
+    adrs: tuple[int, ...] = ()  # numbers cited by `ADR:` trailers (SPEC §13)
+    exempt: str | None = None  # reason from `ADR-Exempt:`
 
 
-def commits_since(root: Path, since: dt.date, rev: str | None = None) -> list[Commit]:
-    """Non-merge commits reachable from rev (default HEAD) since a date, newest first, with
-    the files each one touched. [] when git fails (for example no commits yet)."""
-    # Records are separated by RS (\x1e), header fields by US (\x1f); file names follow the
-    # header one per line. ponytail: core.quotePath=false keeps non-ASCII names readable; a
-    # name containing a newline is still C-quoted by git and would be miscounted.
-    fmt = "--format=%x1e%H%x1f%cs%x1f%s"
-    # --since is compared in the committer's own timezone, so a commit made early the next day
-    # in a far-east zone can look older than the baseline; start a day early and let
-    # drift.compute do the exact committer-day comparison.
-    start = since - dt.timedelta(days=1)
-    args = [
-        "log",
-        "--no-merges",
-        "--name-only",
-        f"--since={start.isoformat()}",
-        fmt,
-        rev or "HEAD",
-        "--",
-    ]
-    out = run(args, root) or ""
+# Records are separated by RS (\x1e), header fields by US (\x1f); file names follow the header
+# one per line. The subject comes last so a stray US in it cannot shift the fields. ponytail:
+# core.quotePath=false keeps non-ASCII names readable; a name containing a newline is still
+# C-quoted by git and would be miscounted.
+_LOG_FORMAT = (
+    "--format=%x1e%H%x1f%cs"
+    "%x1f%(trailers:key=ADR,valueonly,unfold,separator=%x2c)"
+    "%x1f%(trailers:key=ADR-Exempt,valueonly,unfold,separator=%x20)"
+    "%x1f%s"
+)
+
+
+def _numbers(raw: str) -> tuple[int, ...]:
+    return tuple(int(t) for t in re.split(r"[\s,]+", raw) if t.isascii() and t.isdigit())
+
+
+def _commit_log(root: Path, args: list[str], files: bool = True) -> list[Commit]:
+    names = ["--name-only"] if files else []
+    out = run(["log", "--no-merges", *names, _LOG_FORMAT, *args, "--"], root) or ""
     commits: list[Commit] = []
     for record in out.split("\x1e"):
         header, _, rest = record.partition("\n")
         if not header:
             continue
-        sha, date, subject = header.split("\x1f", 2)
-        files = tuple(sorted(f for f in rest.split("\n") if f))
-        commits.append(Commit(sha, dt.date.fromisoformat(date), subject, files))
+        sha, date, adrs, exempt, subject = header.split("\x1f", 4)
+        paths = tuple(sorted(f for f in rest.split("\n") if f))
+        day = dt.date.fromisoformat(date)
+        commits.append(Commit(sha, day, subject, paths, _numbers(adrs), exempt.strip() or None))
     return commits
 
 
+def commits_since(root: Path, since: dt.date, rev: str | None = None) -> list[Commit]:
+    """Non-merge commits reachable from rev (default HEAD) since a date, newest first, with
+    the files each one touched. [] when git fails (for example no commits yet)."""
+    # --since is compared in the committer's own timezone, so a commit made early the next day
+    # in a far-east zone can look older than the baseline; start a day early and let
+    # drift.compute do the exact committer-day comparison.
+    start = since - dt.timedelta(days=1)
+    return _commit_log(root, [f"--since={start.isoformat()}", rev or "HEAD"])
+
+
+def commits_in(root: Path, revs: str, files: bool = True) -> list[Commit]:
+    """Non-merge commits of a revision or range (`HEAD`, `base..HEAD`), newest first, with
+    trailers and (unless files=False) the files each one touched. [] when git fails."""
+    return _commit_log(root, [revs], files)
+
+
 def changed_files(root: Path, base: str) -> list[str]:
+    verify_rev(root, base)
     diff = run(["diff", "--name-only", base, "--"], root)
     if diff is None:
         raise AdrError("bad-revision", f"cannot diff against {base}", rev=base)

@@ -82,10 +82,14 @@ Never rewrite the decision of an accepted ADR. Instead:
 
 `adr prime` and `adr check` report `review-overdue` (its `review-by` date has passed) and `stale-decision` (many commits touched its `scope` since it was written or last reviewed; `adr drift` shows the numbers). Read the ADR and the code in its scope, tell the human whether the decision and its `revisit-if` assumption still hold, and only on their confirmation run `adr review N --until YYYY-MM-DD`. Never record a review you did not do. When writing an ADR, `--review-by YYYY-MM-DD` sets the first review date.
 
+## Citing decisions in commits
+
+End the commit message with a trailer naming the ADRs the change follows: `ADR: N`, or `ADR: 3, 7` for several. A change to files an ADR governs that follows none of them gets `ADR-Exempt: reason` instead. `adr check --diff <base>` warns `uncited-change` for governed commits without either and lists exemptions as `exempt-change` notes; `adr trace N` lists the commits citing an ADR.
+
 ## Before finishing
 
 Run `adr check`. Fix every error it reports.
 
 ## If check fails
 
-Exit codes: 1 `check` found problems, 2 usage error, 3 domain error (e.g. `not-found`, `invalid-transition`, `no-adr-dir`). Errors fail `check`; warnings fail it only with `--strict`. With `--json`, `check` prints `{"ok": bool, "findings": [...]}` and other failures `{"error": {"code": "...", "message": "..."}}`.
+Exit codes: 1 `check` found problems, 2 usage error, 3 domain error (e.g. `not-found`, `invalid-transition`, `no-adr-dir`). Errors fail `check`; warnings fail it only with `--strict`; notes never do. With `--json`, `check` prints `{"ok": bool, "findings": [...]}` and other failures `{"error": {"code": "...", "message": "..."}}`.

@@ -339,6 +339,18 @@ def cmd_log(ctx: Ctx) -> None:
     ctx.out.result(rows, text or "no commits yet")
 
 
+def cmd_trace(ctx: Ctx) -> None:
+    if ctx.loc.root is None:
+        raise AdrError("no-git", "adr trace needs a git repository")
+    adr = repo.resolve(ctx.load().adrs, ctx.args.ref)
+    rows = [
+        {"commit": c.sha, "date": c.date.isoformat(), "subject": c.subject, "adrs": list(c.adrs)}
+        for c in git.commits_in(ctx.loc.root, ctx.args.at or "HEAD", files=False)
+        if adr.number in c.adrs
+    ]
+    ctx.out.result(rows, "\n".join(f"{r['date']}  {r['commit'][:8]}  {r['subject']}" for r in rows))
+
+
 def cmd_graph(ctx: Ctx) -> None:
     args = ctx.args
     graph = AdrGraph(ctx.load().adrs)
@@ -418,29 +430,41 @@ def _set_status(to: Status) -> Callable[[Ctx], None]:
     return cmd
 
 
+SEVERITY_STYLE = {"error": "red", "warning": "yellow", "note": "dim"}
+
+
 def cmd_check(ctx: Ctx) -> int:
     root = ctx.loc.root
     if ctx.args.diff and root is None:
         raise AdrError("no-git", "--diff needs a git repository")
     at = getattr(ctx.args, "at", None)
     s = ctx.load()
+    changed = range_commits = uncommitted = None
+    if root and ctx.args.diff:
+        changed = git.changed_files(root, ctx.args.diff)
+        range_commits = git.commits_in(root, f"{ctx.args.diff}..HEAD")
+        uncommitted = git.working_changes(root)
     findings = run_checks(
         s,
         template_exists=ctx.loc.template.is_file(),
         tracked=(git.files_at(root, at) if at else git.tracked_files(root)) if root else None,
-        changed=git.changed_files(root, ctx.args.diff) if root and ctx.args.diff else None,
+        changed=changed,
         taken_elsewhere=set(git.numbers_on_refs(root, ctx.loc.dir)) if root and not at else None,
         today=today(),
         commits=_commits(ctx, AdrGraph(s.adrs).in_force()) if root else None,
         drift_commits=ctx.loc.drift_commits,
+        range_commits=range_commits,
+        uncommitted=uncommitted,
     )
-    failed = any(f.severity == "error" for f in findings) or (ctx.args.strict and bool(findings))
+    failed = any(f.severity == "error" for f in findings) or (
+        ctx.args.strict and any(f.severity != "note" for f in findings)
+    )
     rows = [
         asdict(f) | {"path": ctx.out.rel(Path(f.path)) if Path(f.path).is_absolute() else f.path}
         for f in findings
     ]
     text = "\n".join(
-        f"{ctx.out.paint(r['severity'], 'red' if r['severity'] == 'error' else 'yellow')}: "
+        f"{ctx.out.paint(r['severity'], SEVERITY_STYLE[r['severity']])}: "
         f"{r['code']}: {r['message']}"
         for r in rows
     ) or ctx.out.paint("ok", "green")
@@ -689,6 +713,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--to", type=int, required=True, metavar="N")
 
     p = add("log", cmd_log, "show the git history of an ADR", reads_=True)
+    p.add_argument("ref")
+
+    p = add("trace", cmd_trace, "list the commits that cite an ADR", reads_=True)
     p.add_argument("ref")
 
     p = add("for", cmd_for, "list the ADRs in force that govern each path", reads_=True)

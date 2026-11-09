@@ -55,7 +55,7 @@ class AdrError(Exception):
 @dataclass(frozen=True)
 class Finding:
     code: str
-    severity: str  # "error" or "warning"
+    severity: str  # "error", "warning" or "note"
     path: str
     message: str
 

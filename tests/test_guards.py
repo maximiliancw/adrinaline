@@ -42,6 +42,7 @@ READS = [
     ["drift", "--at", "HEAD"],
     ["log", "1"],
     ["log", "1", "--at", "HEAD"],
+    ["trace", "1"],
     ["list", "--at", "HEAD"],
     ["skill"],
     ["prime"],

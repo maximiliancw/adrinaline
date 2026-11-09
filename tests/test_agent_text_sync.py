@@ -13,5 +13,7 @@ def test_skill_and_prime_rules_share_the_workflow():
         "adr check",
         "adr accept N",
         "adr review N",
+        "ADR: N",
+        "ADR-Exempt:",
     ):
         assert phrase in skill and phrase in RULES, phrase

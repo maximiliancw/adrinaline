@@ -107,6 +107,20 @@ def _governed_change(w):
     w.write("src/db/conn.py", "y\n")
 
 
+def _uncited(w):
+    w.write_adr(2, "db", scope=["src/db/**"])
+    w.commit_all()
+    w.git("tag", "base")
+    w.write("src/db/conn.py", "x\n")
+    w.commit_all("touch db")
+
+
+def _exempt(w):
+    _uncited(w)
+    w.write("src/db/conn.py", "y\n")
+    w.commit_all("regenerate\n\nADR-Exempt: generated")
+
+
 def _stale(w):
     w.write(".adrinaline.toml", "drift-commits = 1\n")
     w.write_adr(2, "x", scope=["src/**"])
@@ -137,6 +151,8 @@ CLI_CASES = {
     ),
     "scope-matches-nothing": lambda w: w.write_adr(2, "x", scope=["nowhere/**"]),
     "scoped-change": _governed_change,
+    "uncited-change": _uncited,
+    "exempt-change": _exempt,
     "review-overdue": lambda w: w.write_adr(2, "x", review_by="2000-01-01"),
     "stale-decision": _stale,
 }
@@ -144,7 +160,7 @@ CLI_CASES = {
 
 def spec_severities() -> dict[str, str]:
     section = SPEC.read_text().split("## 11.")[1].split("\n## ")[0]
-    return dict(re.findall(r"^\| `([a-z-]+)` \| (error|warning) \|", section, re.M))
+    return dict(re.findall(r"^\| `([a-z-]+)` \| (error|warning|note) \|", section, re.M))
 
 
 def test_cli_cases_cover_spec_section_11():
@@ -154,7 +170,11 @@ def test_cli_cases_cover_spec_section_11():
 @pytest.mark.parametrize("code", CLI_CASES)
 def test_every_check_code_is_reported_by_the_cli(initialized, code):  # AC10
     CLI_CASES[code](initialized)
-    args = ("--diff", "HEAD") if code == "scoped-change" else ()
+    args = {
+        "scoped-change": ("--diff", "HEAD"),
+        "uncited-change": ("--diff", "base"),
+        "exempt-change": ("--diff", "base"),
+    }.get(code, ())
     result = initialized.adr("check", *args, "--json")
     severity = spec_severities()[code]
     assert result.code == (1 if severity == "error" else 0), result.err
