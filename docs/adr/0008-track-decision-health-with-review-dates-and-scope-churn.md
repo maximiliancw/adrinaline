@@ -7,8 +7,6 @@ depends-on: [4]
 ---
 # Track decision health with review dates and scope churn
 
-# Track decision health with review dates and scope churn
-
 ## Context and Problem Statement
 
 ADRs rot silently. The decision stays accepted while the assumptions behind it change and the code it governs is rewritten. No surveyed ADR tool makes that drift visible, and nothing in adrinaline distinguishes an ADR reviewed last month from one nobody has looked at since it was written. How can the tool make the health of a decision measurable, deterministically and from git alone?
