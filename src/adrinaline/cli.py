@@ -138,8 +138,14 @@ def _wire_instructions(target: Path) -> Path | None:
 
 
 def _skill_dirs(base: Path) -> list[Path]:
-    """Skill dirs of the agents this repo uses; .agents/skills when none is detected."""
+    """Skill dirs of the agents this repo uses; .agents/skills when none is detected.
+
+    A user-wide ~/.claude/CLAUDE.md counts as Claude Code, which never reads .agents/skills.
+    """
     found = [d for d, markers in SKILL_MARKERS.items() if any((base / m).exists() for m in markers)]
+    claude = next(iter(SKILL_MARKERS))
+    if claude not in found and (Path.home() / ".claude/CLAUDE.md").exists():
+        found.insert(0, claude)
     return found or [AGENTS_SKILL]
 
 

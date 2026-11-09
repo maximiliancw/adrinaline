@@ -515,7 +515,7 @@ cites nothing.
   only that file exists; create `AGENTS.md` when neither exists; skip when the
   file already mentions `adr prime`. Then install the skill (§12) into the
   skill dir of each agent detected at that root: `.claude/skills/adr` when
-  `CLAUDE.md` or `.claude/` exists; `.agents/skills/adr` (read by Codex,
+  `CLAUDE.md` or `.claude/` exists, or the user-wide `~/.claude/CLAUDE.md`; `.agents/skills/adr` (read by Codex,
   Cursor and Copilot) when `AGENTS.md`, `.agents/`, `.cursor/` or `.github/`
   exists, or when nothing is detected. Each dir is written at most once.
   Both steps are idempotent.

@@ -214,7 +214,7 @@ Git access is read-only, and `adr log` only sees committed changes, so commit fi
 
 ## For coding agents
 
-`adr init --agents` (or `adr init` on a terminal, which asks) adds the `adr prime` line below to `AGENTS.md` and installs the skill, which teaches agents when and how to write ADRs, where the agents it detects read it: `.claude/skills/adr` when the repo has `CLAUDE.md` or `.claude/`, `.agents/skills/adr` when it has `AGENTS.md`, `.agents/`, `.cursor/` or `.github/` (or nothing). To install by hand:
+`adr init --agents` (or `adr init` on a terminal, which asks) adds the `adr prime` line below to `AGENTS.md` and installs the skill, which teaches agents when and how to write ADRs, where the agents it detects read it: `.claude/skills/adr` when the repo has `CLAUDE.md` or `.claude/` (or you have `~/.claude/CLAUDE.md`), `.agents/skills/adr` when it has `AGENTS.md`, `.agents/`, `.cursor/` or `.github/` (or nothing). To install by hand:
 
 | Agent | Install |
 |---|---|
