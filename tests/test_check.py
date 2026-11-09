@@ -296,3 +296,52 @@ def test_check_format_with_json_is_a_usage_error(initialized):
 def test_github_annotation_escapes_workflow_command_characters():
     row = {"code": "c", "severity": "warning", "path": "a,b:c.md", "message": "50%\nnext"}
     assert github_annotation(row) == "::warning file=a%2Cb%3Ac.md,line=1,title=c::50%25%0Anext"
+
+
+FIXABLE = {
+    "asymmetric-relation": CLI_CASES["asymmetric-relation"],
+    "status-mismatch": lambda w: w.write_adr(2, "x", superseded_by=[1]),
+    "unknown-relation-key": CLI_CASES["unknown-relation-key"],
+    "no-template": CLI_CASES["no-template"],
+}
+
+
+@pytest.mark.parametrize("code", FIXABLE)
+def test_fix_repairs_mechanical_findings(initialized, code):  # AC34
+    FIXABLE[code](initialized)
+    data = initialized.adr("check", "--fix", "--json").json()
+    assert code in {f["code"] for f in data["fixed"]}
+    assert data["findings"] == []
+    again = initialized.adr("check", "--fix", "--json").json()
+    assert again["fixed"] == [] and again["findings"] == []
+
+
+def test_fix_renames_key_in_place(initialized):
+    CLI_CASES["unknown-relation-key"](initialized)
+    initialized.adr("check", "--fix")
+    text = (initialized.adr_dir / "0002-x.md").read_text()
+    assert text.startswith(f"{FRONT}depends-on: [1]\n---")
+
+
+def test_fix_leaves_ambiguous_findings_alone(initialized):  # AC34
+    CLI_CASES["status-mismatch"](initialized)  # superseded, successor unknown
+    initialized.write("docs/adr/0003-y.md", f"{FRONT}depends_on: [1]\ndepends-on: [1]\n---\n# Y\n")
+    before = {p: p.read_text() for p in initialized.adr_dir.glob("*.md")}
+    result = initialized.adr("check", "--fix", "--json")
+    assert result.code == 1
+    data = result.json()
+    assert data["fixed"] == []
+    assert {"status-mismatch", "unknown-relation-key"} <= {f["code"] for f in data["findings"]}
+    assert {p: p.read_text() for p in initialized.adr_dir.glob("*.md")} == before
+
+
+def test_fix_output_and_usage(initialized):
+    CLI_CASES["no-template"](initialized)
+    result = initialized.adr("check", "--fix")
+    assert result.code == 0
+    assert result.out.startswith("fixed no-template")
+    assert "fixed" not in initialized.adr("check", "--json").json()
+    assert initialized.adr("check", "--fix", "--at", "HEAD").code == 2
+    CLI_CASES["no-template"](initialized)
+    gitlab = initialized.adr("check", "--fix", "--format", "gitlab")
+    assert json.loads(gitlab.out) == []

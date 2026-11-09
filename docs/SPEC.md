@@ -386,7 +386,7 @@ Each finding has a stable `code`, a `severity` (`error`, `warning` or
 | `stale-decision` | warning | Only when `drift-commits` (§5) is above 0 and there is a git repository: an ADR in force has churn (§8) of at least `drift-commits` commits; the message names the count, the baseline and `adr review N` |
 | `stale-skill` | warning | A `SKILL.md` in `.claude/skills/adr`, `.agents/skills/adr`, `.cursor/skills/adr` or `.github/skills/adr` at the git root (or current directory) has no `metadata.version` or one whose release (its leading numeric segments, so `0.3.1.dev16+gabc` counts as `0.3.1`) differs from the running `adr`'s; a `metadata.version` of `"{version}"` (left unfilled by `npx skills add` and the Claude Code plugin, whose own update commands refresh the skill) gives no finding; path is that `SKILL.md`, the message names both versions and `adr skill --install DIR`. No installed skill, no finding |
 
-`adr check --fix` is not in v1.
+`adr check --fix` repairs `asymmetric-relation` (writes the missing inverse), `status-mismatch` (sets `superseded` when `superseded-by` is set), `unknown-relation-key` (renames the key in place unless the hyphenated key exists) and `no-template` (recreates it), then re-checks; the exit code comes from what remains (ADR 0010). Text output prints `fixed <code> <path>: <what>` per repair; `--json` adds a `fixed` list. Not combinable with `--at`.
 
 ## 12. Agent interface
 
@@ -634,3 +634,7 @@ Each criterion is an automated test.
 33. The same commit with `ADR-Exempt: generated code` is reported as
     `exempt-change` with severity `note`, and `adr check --diff REF --strict`
     exits 0.
+34. Each code `adr check --fix` repairs is fixed on its fixture and
+    re-checks clean; a second run fixes nothing; status `superseded` without
+    `superseded-by` and a snake_case key next to its hyphenated twin are left
+    byte-identical.

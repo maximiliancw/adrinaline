@@ -10,7 +10,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from adrinaline import __version__, drift, git, prime, repo
+from adrinaline import __version__, drift, fix, git, prime, repo
 from adrinaline.check import run_checks
 from adrinaline.frontmatter import FrontmatterError, render, split
 from adrinaline.graph import (
@@ -472,6 +472,9 @@ def cmd_check(ctx: Ctx) -> int:
         raise AdrError("no-git", "--diff needs a git repository")
     at = getattr(ctx.args, "at", None)
     s = ctx.load()
+    fixed = fix.apply(s, ctx.loc, today()) if ctx.args.fix else []
+    if fixed:
+        s = ctx.load()
     changed = range_commits = uncommitted = None
     if root and ctx.args.diff:
         changed = git.changed_files(root, ctx.args.diff)
@@ -503,12 +506,16 @@ def cmd_check(ctx: Ctx) -> int:
     elif ctx.args.format == "gitlab":
         sys.stdout.write(gitlab_report(rows, ctx.out.rel(ctx.loc.dir)) + "\n")
     else:
-        text = "\n".join(
+        fixed_rows = [asdict(f) | {"path": ctx.out.rel(Path(f.path))} for f in fixed]
+        lines = [f"fixed {r['code']} {r['path']}: {r['message']}" for r in fixed_rows]
+        lines += [
             f"{ctx.out.paint(r['severity'], SEVERITY_STYLE[r['severity']])}: "
             f"{r['code']}: {r['message']}"
             for r in rows
-        ) or ctx.out.paint("ok", "green")
-        ctx.out.result({"ok": not failed, "findings": rows}, text)
+        ]
+        text = "\n".join(lines) or ctx.out.paint("ok", "green")
+        payload = {"ok": not failed, "findings": rows}
+        ctx.out.result(payload | ({"fixed": fixed_rows} if ctx.args.fix else {}), text)
     return EXIT_FINDINGS if failed else EXIT_OK
 
 
@@ -739,6 +746,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = add("check", cmd_check, "validate all ADRs", reads_=True)
     p.add_argument("--strict", action="store_true", help="fail on warnings too")
+    p.add_argument("--fix", action="store_true", help="repair mechanical findings, then check")
     p.add_argument("--diff", metavar="REF", help="also report changed files governed by ADRs")
     p.add_argument(
         "--format",
@@ -814,6 +822,8 @@ def main(
         parser.error("--rank supports only text and json output")
     if args.func is cmd_check and args.json and args.format != "text":
         parser.error("--format and --json are mutually exclusive")
+    if args.func is cmd_check and args.fix and args.at is not None:
+        parser.error("--fix cannot be combined with --at")
     if args.func is cmd_new and args.title is None and not _prompting(args):
         parser.error("the following arguments are required: title")
     cwd = (cwd or Path.cwd()).resolve()
