@@ -15,7 +15,7 @@ ADRs are Markdown files in the repository (usually `docs/adr/NNNN-slug.md`) with
 
 1. Run `adr prime` to see the decisions in force. Its sections: decisions in force, a *Needs review* list when a decision is overdue or its code has churned, proposed ADRs, and short usage rules.
 2. Before editing a file, run `adr for <path>` and follow the ADRs it lists. Use `adr show N` to read a whole decision.
-3. If a command fails with `no-adr-dir` (exit 3), ask the user before running `adr init`.
+3. If a command fails with `no-adr-dir` (exit 3), ask the user before running `adr init`; `adr init --agents` also adds the `adr prime` line to `AGENTS.md` and installs this skill.
 
 ```json
 {"src/db/conn.py": [{"number": 7, "id": "0007", "title": "Use PostgreSQL", "status": "accepted", "path": "docs/adr/0007-use-postgresql.md", "scope": ["src/db/**"]}]}

@@ -23,7 +23,7 @@ Human output is coloured on a terminal; it is plain when stdout is not a TTY, wh
 
 | Command | Options | What it does |
 |---|---|---|
-| `init` | `--force` overwrites the template and ADR 0001 | create the ADR directory, template and ADR 0001 |
+| `init` | `--force` overwrites the template and ADR 0001; `--agents` adds the `adr prime` line to `AGENTS.md` and installs the skill into `.claude/skills/adr` without asking | create the ADR directory, template and ADR 0001, print the next steps; on a terminal, offer to wire the coding agent |
 | `new [TITLE]` | `--accepted`, `--tag TAG`, `--scope GLOB`, `--review-by DATE`, `--body-file PATH` (`-` = stdin), `--edit`, `--supersedes REF`, `--amends REF`, `--depends-on REF`, `--relates-to REF`, `--force` supersedes ADRs that are not accepted | create a new ADR; on a terminal without TITLE, prompt for title, supersedes and scope |
 | `show REF` | `--raw` prints the file verbatim | show one ADR |
 | `list` | `--status STATUS`, `--tag TAG` | list ADRs |
