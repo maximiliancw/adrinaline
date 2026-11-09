@@ -15,6 +15,8 @@ IMPACT = ("depends-on", "amends")
 
 @dataclass(frozen=True)
 class Edge:
+    """`src` has `relation` to `dst`. Only forward relations are stored; inverses are derived."""
+
     src: int
     dst: int
     relation: str
@@ -22,12 +24,21 @@ class Edge:
 
 @dataclass
 class Subgraph:
+    """Result of `AdrGraph.reachable`: `nodes` start with the start ADR, in discovery order."""
+
     nodes: list[int]
     edges: list[Edge]
     steps: list[tuple[int, int, str]]  # (parent, child, relation as seen from the parent)
 
 
 class AdrGraph:
+    """Typed edges between ADRs, built from their stored relations.
+
+    A stored `superseded-by` becomes a `supersedes` edge from the other ADR, so each pair appears
+    once. Edges may point at numbers with no ADR. With duplicate numbers, the first ADR is the
+    node. Inverse names (`superseded-by`, `amended-by`, `dependency-of`) exist only in `related`.
+    """
+
     def __init__(self, adrs: list[Adr]) -> None:
         self.adrs = adrs
         self.nodes: dict[int, Adr] = {}
@@ -49,6 +60,12 @@ class AdrGraph:
     def rank(
         self, damping: float = 0.85, tolerance: float = 1e-9, max_iterations: int = 100
     ) -> dict[int, float]:
+        """PageRank by number; the ranks sum to 1 (`{}` for an empty graph).
+
+        Counted edges: `depends-on` and `amends`, from the depending ADR to the one it depends on
+        or amends, and `relates-to` in both directions. `supersedes` is excluded, so replacing an
+        ADR does not move rank. Edges to numbers with no ADR are ignored.
+        """
         nodes = sorted(self.nodes)
         if not nodes:
             return {}
@@ -76,14 +93,18 @@ class AdrGraph:
         return ranks
 
     def label(self, number: int) -> str:
+        """`0003 Title`, or `0003 (missing)` when no ADR has that number."""
         adr = self.nodes.get(number)
         return f"{number:04d} {adr.title}" if adr else f"{number:04d} (missing)"
 
     def status(self, number: int) -> str:
+        """The status value, or `missing` when no ADR has that number."""
         adr = self.nodes.get(number)
         return adr.status.value if adr else "missing"
 
     def related(self, number: int) -> dict[str, list[int]]:
+        """Relation name to sorted numbers, seen from `number`: its own relations plus the derived
+        inverses (`superseded-by`, `amended-by`, `dependency-of`)."""
         found: dict[str, set[int]] = defaultdict(set)
         for edge in self.edges:
             if edge.src == number:
@@ -93,6 +114,8 @@ class AdrGraph:
         return {name: sorted(numbers) for name, numbers in sorted(found.items())}
 
     def in_force(self) -> list[Adr]:
+        """Accepted ADRs that nothing supersedes, by number. Judged from the edges, so a
+        one-sided `supersedes` already counts."""
         return [
             adr
             for number, adr in sorted(self.nodes.items())
@@ -100,6 +123,11 @@ class AdrGraph:
         ]
 
     def successor(self, number: int) -> int:
+        """Follow `superseded-by` to the end of the chain; `number` itself if never superseded.
+
+        With several successors it takes the last (highest-numbered). A cycle stops the walk at the
+        first number seen twice.
+        """
         seen = {number}
         while successors := self.related(number).get("superseded-by"):
             number = successors[-1]
@@ -109,6 +137,7 @@ class AdrGraph:
         return number
 
     def cycle(self, relation: str, extra: Edge | None = None) -> list[int] | None:
+        """A cycle in `relation` as a list of numbers, else None. `extra` is a hypothetical edge."""
         sorter: TopologicalSorter[int] = TopologicalSorter()
         for edge in [*self.edges, *([extra] if extra else [])]:
             if edge.relation == relation and edge.src != edge.dst:
@@ -127,6 +156,12 @@ class AdrGraph:
         reverse: bool = False,
         depth: int | None = None,
     ) -> Subgraph:
+        """Breadth-first walk from `start` over `relations`, each edge visited once.
+
+        `reverse` walks edges backwards and names each step by its inverse (`superseded-by`, ...).
+        `relates-to` is followed both ways either way. `depth` caps the levels (None: no cap).
+        `Subgraph.steps` are `(parent, child, relation as seen from the parent)`.
+        """
         sub = Subgraph([start], [], [])
         seen = {start}
         queue = deque([(start, 0)])
@@ -153,6 +188,8 @@ class AdrGraph:
         return sub
 
     def governing(self, path: str, *, include_proposed: bool = False) -> list[Adr]:
+        """ADRs in force whose `scope` globs match `path` (`PurePosixPath.full_match`, so `**`
+        spans directories). `include_proposed` appends matching proposed ADRs after them."""
         candidates = self.in_force()
         if include_proposed:
             candidates += [a for _, a in sorted(self.nodes.items()) if a.status is Status.PROPOSED]

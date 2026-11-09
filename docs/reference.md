@@ -15,3 +15,7 @@
 ::: adrinaline.git
 
 ::: adrinaline.output
+
+::: adrinaline.drift
+
+::: adrinaline.fix

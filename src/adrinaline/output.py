@@ -12,6 +12,7 @@ EXIT_OK = 0
 EXIT_FINDINGS = 1
 EXIT_DOMAIN = 3
 
+# Keep in sync with model.Frontmatter: the fields adr_dict leaves out of `meta` (hyphenated).
 _KNOWN_KEYS = {
     "status",
     "date",
@@ -73,6 +74,10 @@ def gitlab_report(rows: list[dict[str, str]], fallback: str) -> str:
 
 
 class Out:
+    """Output channel. `result` prints JSON in `json_mode`, else the text unless `quiet`; `note`
+    writes a hint to stderr unless `quiet`; `rel` shortens a path relative to `base`; `paint` adds
+    ANSI colour only when `color` is set."""
+
     def __init__(self, *, json_mode: bool, quiet: bool, base: Path, color: bool = False) -> None:
         self.json_mode = json_mode
         self.quiet = quiet
@@ -110,6 +115,12 @@ def adr_dict(
     body: bool = False,
     **extra: Any,
 ) -> dict[str, Any]:
+    """The JSON object for one ADR.
+
+    `relations` defaults to the stored relations that are not empty; pass one to show others, such
+    as derived inverses. `meta` holds the frontmatter keys that have no field of their own. `body`
+    adds the Markdown body; `extra` is merged last and wins on a clash.
+    """
     data: dict[str, Any] = {
         "number": adr.number,
         "id": adr.id,
@@ -134,6 +145,8 @@ def adr_dict(
 
 
 def error(err: AdrError, json_mode: bool) -> int:
+    """Report `err`: a JSON envelope on stdout, or `adr: code: message` on stderr. Returns the
+    domain exit code (3)."""
     if json_mode:
         envelope = {"error": {"code": err.code, "message": err.message, "details": err.details}}
         sys.stdout.write(dumps(envelope) + "\n")

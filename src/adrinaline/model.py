@@ -31,6 +31,7 @@ TRANSITIONS = frozenset(
         (Status.ACCEPTED, Status.SUPERSEDED),
     }
 )
+"""Status changes allowed without `--force`, as `(from, to)` pairs."""
 
 STORED_RELATIONS = ("supersedes", "superseded-by", "amends", "depends-on", "relates-to")
 LINKABLE = ("amends", "depends-on", "relates-to")
@@ -61,6 +62,9 @@ class Finding:
 
 
 class Frontmatter(BaseModel):
+    """Validated frontmatter. Hyphenated YAML keys fill the snake_case fields; the snake_case
+    spellings are not read and fall into the extra keys. Other unknown keys are kept as well."""
+
     model_config = ConfigDict(extra="allow")
 
     status: Status
@@ -102,6 +106,13 @@ def _error_code(error: Any) -> str:
 
 @dataclass
 class Adr:
+    """One parsed ADR file.
+
+    `meta` is the round-trip frontmatter that gets written back; `relations` always has the five
+    `STORED_RELATIONS` keys. `text` is the whole file as read and `body` what follows the
+    frontmatter; `number` and `slug` come from the filename, `title` from the first `# ` heading.
+    """
+
     number: int
     slug: str
     path: Path
@@ -129,6 +140,13 @@ class Adr:
 
 
 def parse_adr(path: Path, text: str) -> Adr:
+    """Parse one ADR; `path` supplies the number and slug. Raises `AdrError` with code:
+
+    `bad-filename`; `no-frontmatter` (missing, unterminated, invalid YAML or not a mapping);
+    `bad-date` (unparseable date, or a bad `date`, `review-by` or `reviewed` value);
+    `missing-field`; `bad-status`; `bad-scope`; `bad-field` (any other invalid field); `no-title`.
+    Only the first validation error is reported.
+    """
     match = FILENAME_RE.match(path.name)
     if not match:
         raise AdrError("bad-filename", f"{path.name}: expected NNNN-slug.md", path=str(path))

@@ -37,6 +37,9 @@ def entry(graph: AdrGraph, adr: Adr) -> str:
 
 
 def scores(graph: AdrGraph, adrs: list[Adr], changed: list[str]) -> dict[int, float]:
+    """Score each ADR in `adrs` from rank, a scope hit on a `changed` path and recency; weights
+    and formula in SPEC §12. Rank is normalised by the highest rank in the whole graph, recency
+    by the dates within `adrs` (1.0 when they are all equal)."""
     ranks = graph.rank()
     top = max(ranks.values(), default=0.0) or 1.0
     days = [adr.date.toordinal() for adr in adrs]
@@ -53,6 +56,12 @@ def scores(graph: AdrGraph, adrs: list[Adr], changed: list[str]) -> dict[int, fl
 def select(
     graph: AdrGraph, adrs: list[Adr], changed: list[str], budget: int
 ) -> tuple[list[Adr], int]:
+    """Fill a `budget` of words with `adrs` by descending `scores` (ties: lower number first).
+
+    The top-scored ADR is always taken, even over budget; after that an ADR that does not fit is
+    skipped and smaller ones may still fill the space. Returns the chosen ADRs sorted by number
+    and how many were left out.
+    """
     points = scores(graph, adrs, changed)
     heap = [(-points[adr.number], adr.number, i) for i, adr in enumerate(adrs)]
     heapq.heapify(heap)
@@ -70,6 +79,8 @@ def select(
 
 @dataclass
 class Briefing:
+    """The briefing Markdown plus the parts it was built from."""
+
     markdown: str
     shown: list[Adr]
     omitted: int
@@ -85,6 +96,12 @@ def briefing(
     budget: int | None = None,
     review: list[Finding] | None = None,
 ) -> Briefing:
+    """Build the `adr prime` Markdown: ADRs in force, `review` findings, proposed ADRs and rules.
+
+    With a `budget` (words) the in-force list is cut by `select`, ranked against the `changed`
+    paths (SPEC §12); without one, all are shown and `changed` is unused. Proposed ADRs are never
+    cut. `dir_label` is the ADR directory as shown to the reader.
+    """
     in_force = graph.in_force()
     proposed = [adr for _, adr in sorted(graph.nodes.items()) if adr.status is Status.PROPOSED]
     if budget is None:

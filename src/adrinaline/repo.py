@@ -28,11 +28,12 @@ from adrinaline.model import (
     parse_adr,
 )
 
-__all__ = ["flow"]
-
 
 @dataclass(frozen=True)
 class Location:
+    """Where ADRs live: `dir`, git toplevel `root` (None outside git), `template`, and the
+    `drift-commits` threshold from config (0 turns `stale-decision` off)."""
+
     dir: Path
     root: Path | None
     template: Path
@@ -41,6 +42,9 @@ class Location:
 
 @dataclass
 class AdrSet:
+    """Parsed ADRs sorted by (number, slug), the findings for files that did not parse, and every
+    number seen in a valid filename (including files that failed to parse)."""
+
     adrs: list[Adr]
     problems: list[Finding]
     numbers: set[int]
@@ -74,6 +78,13 @@ def _config_table(directory: Path) -> dict | None:
 
 
 def locate(cwd: Path, env: Mapping[str, str], explicit: Path | None = None) -> Location:
+    """Find the ADR directory. First hit wins: `explicit` (--dir), `ADR_DIR`, config `dir`,
+    `.adr-dir`, then `<git root or cwd>/docs/adr`.
+
+    Config is the nearest `.adrinaline.toml` or `pyproject.toml` with `[tool.adrinaline]`, searched
+    from `cwd` up to the git root; its paths are relative to the file. `--dir` and `ADR_DIR` are
+    relative to `cwd`. Raises `bad-config` for an unreadable or mistyped config.
+    """
     root = git.toplevel(cwd)
     table: dict = {}
     base = cwd
@@ -113,6 +124,9 @@ def no_dir(loc: Location) -> AdrError:
 
 
 def parse_all(items: Iterable[tuple[Path, str]]) -> AdrSet:
+    """Parse `(path, text)` pairs. Dotfiles and `README.md` are skipped silently; other names that
+    are not `NNNN-slug.md` give a `bad-filename` warning; a parse error becomes an error finding.
+    """
     adrs: list[Adr] = []
     problems: list[Finding] = []
     numbers: set[int] = set()
@@ -145,6 +159,10 @@ def _read(path: Path) -> str:
 
 
 def load(loc: Location, at: str | None = None) -> AdrSet:
+    """Read and parse the ADR directory, or its state at git revision `at`.
+
+    Raises `no-adr-dir` when the directory is missing.
+    """
     if at is not None:
         return parse_all(git.read_dir_at(loc.root, at, loc.dir))
     if not loc.dir.is_dir():
@@ -154,6 +172,12 @@ def load(loc: Location, at: str | None = None) -> AdrSet:
 
 
 def resolve(adrs: list[Adr], ref: str) -> Adr:
+    """Find the one ADR a reference names. All digits match the number; anything else is
+    slugified (`Use PostgreSQL` is `use-postgresql`) and matches an exact slug, else a slug that
+    contains it.
+
+    Raises `not-found` (with close matches as candidates) or `ambiguous`.
+    """
     ref = ref.strip()
     if not ref:
         raise AdrError("not-found", "empty ADR reference", ref=ref)
@@ -209,6 +233,7 @@ def set_relation(adr: Adr, name: str, numbers: Iterable[int]) -> None:
 
 
 def set_status(adr: Adr, status: Status, today: dt.date) -> None:
+    """Set the status and reset `date` to `today`, in memory only; the caller saves."""
     adr.status = status
     adr.date = today
     adr.meta["status"] = status.value
@@ -224,6 +249,8 @@ def record_review(adr: Adr, today: dt.date, until: dt.date | None) -> None:
 
 
 def transition(adr: Adr, to: Status, *, force: bool = False, today: dt.date) -> None:
+    """`set_status` (so `date` is reset) if `TRANSITIONS` allows it or `force`, else raise
+    `invalid-transition`. Does not save."""
     if not force and (adr.status, to) not in TRANSITIONS:
         raise AdrError(
             "invalid-transition",
@@ -295,6 +322,12 @@ def numbers_in(directory: Path) -> set[int]:
 
 
 def next_number(loc: Location) -> tuple[int, dict[int, str]]:
+    """The next free number and the numbers it skipped.
+
+    One more than the highest number in the directory or on any other branch or remote-tracking
+    ref; `skipped` maps numbers above the local maximum that another ref already holds to that
+    ref. A misnamed `NNNN-*.md` file also holds its number.
+    """
     top = max(numbers_in(loc.dir), default=0)
     remote = git.numbers_on_refs(loc.root, loc.dir) if loc.root else {}
     skipped = {n: ref for n, ref in remote.items() if n > top}
@@ -337,6 +370,11 @@ def check_acyclic(graph: AdrGraph, relation: str, src: int, dst: int) -> None:
 
 
 def supersede(graph: AdrGraph, old: Adr, new: Adr, *, force: bool, today: dt.date) -> None:
+    """Make `new` supersede `old`: update both relation lists, set `old` to superseded (its
+    `date` is reset) and write both files.
+
+    Raises `self-relation`, `invalid-transition` (`old` is not accepted, unless `force`) or `cycle`.
+    """
     if old.number == new.number:
         raise AdrError("self-relation", f"{old.id} cannot supersede itself")
     if old.status is not Status.ACCEPTED and not force:
@@ -384,6 +422,13 @@ def unlink(src: Adr, relation: str, dst: Adr) -> list[Adr]:
 
 
 def renumber(s: AdrSet, adr: Adr, to: int) -> tuple[Path, list[Adr]]:
+    """Rename `adr` to number `to`; return the new path and the other ADRs rewritten.
+
+    Relations in other ADRs that point at the old number are rewritten, and `NNNN-slug.md` links
+    in every body are updated. If the old number is shared by several ADRs, the numeric relations
+    are left alone (they cannot tell which file is meant) and only the filename links change.
+    Raises `exists` if `to` is taken.
+    """
     if to in s.numbers:
         raise AdrError("exists", f"{to:04d} is already taken", number=to)
     old_name = adr.path.name

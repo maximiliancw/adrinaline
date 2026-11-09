@@ -11,6 +11,8 @@ from adrinaline.repo import AdrSet, Location
 
 @dataclass(frozen=True)
 class Fix:
+    """One repair made by `apply`: the finding `code`, the file `path` and a short `message`."""
+
     code: str
     path: str
     message: str

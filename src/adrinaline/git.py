@@ -13,6 +13,8 @@ _ENV = os.environ | {"GIT_OPTIONAL_LOCKS": "0"}
 
 
 def run(args: list[str], cwd: Path, stdin: str | None = None) -> str | None:
+    """Run git and return stdout, or None if git exits non-zero or is not installed. The two
+    cases look the same to the caller; it never raises."""
     try:
         proc = subprocess.run(
             ["git", "-c", "core.quotePath=false", *args],
@@ -45,6 +47,9 @@ def _rel(root: Path, directory: Path) -> str | None:
 
 
 def numbers_on_refs(root: Path, directory: Path) -> dict[int, str]:
+    """ADR numbers in `directory` on local branches and remote-tracking refs, each mapped to the
+    first ref (in refname order) that has it. The current branch is skipped. `{}` if `directory`
+    is outside `root` or the refs cannot be listed."""
     rel = _rel(root, directory)
     refs = run(["for-each-ref", "--format=%(refname:short)", "refs/heads", "refs/remotes"], root)
     if rel is None or refs is None:
@@ -74,6 +79,12 @@ def verify_rev(root: Path, rev: str) -> None:
 
 
 def read_dir_at(root: Path | None, rev: str, directory: Path) -> list[tuple[Path, str]]:
+    """`(path, text)` for each file directly in `directory` at `rev`, as `repo.parse_all` takes.
+
+    Subdirectories and missing objects are skipped; undecodable bytes are replaced. Raises
+    `no-git` (no repository or git), `bad-revision`, or `no-adr-dir` (outside the repository or
+    absent at `rev`).
+    """
     if root is None:
         raise AdrError("no-git", "--at needs a git repository")
     verify_rev(root, rev)
@@ -116,6 +127,11 @@ def read_dir_at(root: Path | None, rev: str, directory: Path) -> list[tuple[Path
 
 
 def log(root: Path | None, path: Path, rev: str | None = None) -> list[dict[str, str]]:
+    """Commits that touched `path`, following renames, newest first, from `rev` (default HEAD).
+
+    Each row has `commit`, `date`, `author` and `subject`. Raises `no-git` without a repository;
+    `[]` when git fails.
+    """
     if root is None:
         raise AdrError("no-git", "adr log needs a git repository")
     fmt = "--format=%H%x1f%as%x1f%an%x1f%s"

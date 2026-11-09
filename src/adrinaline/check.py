@@ -46,6 +46,8 @@ def _gaps(s: AdrSet, taken_elsewhere: set[int]) -> list[Finding]:
 
 
 def _relations(s: AdrSet, graph: AdrGraph) -> list[Finding]:
+    """Relation findings: self-relation, dangling-relation, asymmetric-relation, cycle, and also
+    status-mismatch (`superseded-by` set but status not superseded, or the reverse)."""
     found: list[Finding] = []
     for adr in s.adrs:
         path = str(adr.path)
@@ -213,6 +215,18 @@ def run_checks(
     uncommitted: list[str] | None = None,
     skills: dict[str, str | None] | None = None,
 ) -> list[Finding]:
+    """Run every rule and return the findings sorted by (path, code).
+
+    Optional inputs switch rules on: `tracked` (files in the repo) enables `scope-matches-nothing`;
+    `changed` (files changed against a base) enables `scoped-change`, minus files whose commits in
+    `range_commits` cite or exempt the ADR (unless still in `uncommitted`); `skills` maps an
+    installed skill dir to its version; `taken_elsewhere` numbers are not reported as gaps.
+
+    `commits` feeds `stale-decision`. None means no git history was read: the threshold is forced
+    to 0, which disables the rule. `[]` means history was read and found nothing (or the rule was
+    disabled upstream); the threshold stays, but no ADR has churn, so the result is the same.
+    `review-overdue` does not depend on `commits`.
+    """
     graph = AdrGraph(s.adrs)
     cited, traced = _trailers(graph, range_commits or [])
     traced -= set(uncommitted or [])
