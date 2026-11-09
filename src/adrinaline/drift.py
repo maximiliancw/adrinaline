@@ -14,6 +14,8 @@ def _in_scope(file: str, adr: Adr) -> bool:
 
 @dataclass
 class Drift:
+    """Commits that touched one ADR's scope since its baseline."""
+
     adr: Adr
     commits: list[Commit]  # newest first, as git log prints them
 

@@ -12,7 +12,7 @@ from pathlib import Path
 
 from adrinaline import __version__, drift, fix, git, prime, repo
 from adrinaline.check import run_checks
-from adrinaline.frontmatter import FrontmatterError, render, split
+from adrinaline.frontmatter import FrontmatterError, flow, render, split
 from adrinaline.graph import (
     FORWARD,
     IMPACT,
@@ -163,6 +163,12 @@ def _install_skill(target: Path) -> list[Path]:
 
 
 def cmd_init(ctx: Ctx) -> None:
+    """Create the ADR directory, the template and ADR 0001, and print what was written.
+
+    Existing files are kept unless `--force`. With `--agents`, or a yes at the prompt (terminal
+    only, not with `--json` or `-q`), also add the `adr prime` line to AGENTS.md or CLAUDE.md and
+    install the skill for each agent detected.
+    """
     loc, args, out = ctx.loc, ctx.args, ctx.out
     force = args.force
     loc.dir.mkdir(parents=True, exist_ok=True)
@@ -177,7 +183,7 @@ def cmd_init(ctx: Ctx) -> None:
         meta, body = split(repo.data_text("0001.md"))
         meta["date"] = today()
         if name := git.user_name(ctx.cwd):
-            meta["decision-makers"] = repo.flow([name])
+            meta["decision-makers"] = flow([name])
         repo.atomic_write(target, render(meta, body))
         written.append(target)
     paths = [out.rel(p) for p in written]
@@ -249,6 +255,12 @@ def iso_date(value: str) -> dt.date:
 
 
 def cmd_new(ctx: Ctx) -> None:
+    """Create an ADR: proposed, or accepted with `--accepted`. Without a title it prompts.
+
+    Refs are resolved, supersede targets checked (accepted, unless `--force`), cycles and scope
+    globs refused before the file is written; then `--supersedes`, `--amends`, `--depends-on` and
+    `--relates-to` are applied. The body comes from `--body-file` (`-` is stdin), else the template.
+    """
     args, loc = ctx.args, ctx.loc
     if not loc.dir.is_dir():
         raise repo.no_dir(loc)
@@ -401,6 +413,7 @@ def cmd_graph(ctx: Ctx) -> None:
         ranks = graph.rank()
         nodes = sorted(nodes, key=lambda n: (-ranks.get(n, 0.0), n))
         if fmt == "json":
+            # `--format json` without `--json`: result() prints JSON only in json_mode
             ctx.out.json_mode = True
             ctx.out.result(graph_data(graph, nodes, edges, ranks, ctx.out.rel), "")
         else:
@@ -410,7 +423,7 @@ def cmd_graph(ctx: Ctx) -> None:
             ctx.out.result(None, "\n".join(lines))
         return
     if fmt == "json":
-        ctx.out.json_mode = True
+        ctx.out.json_mode = True  # as above
         ctx.out.result(graph_data(graph, nodes, edges, rel=ctx.out.rel), "")
     elif fmt == "mermaid":
         ctx.out.result(None, render_mermaid(graph, nodes, edges))
@@ -467,6 +480,13 @@ SEVERITY_STYLE = {"error": "red", "warning": "yellow", "note": "dim"}
 
 
 def cmd_check(ctx: Ctx) -> int:
+    """Validate the ADRs and print the findings as text, JSON, GitHub annotations or a GitLab
+    report. Returns 1 on any error, or on any warning with `--strict`; notes never fail.
+
+    `--fix` repairs and reloads until nothing is left to repair. `--diff REV` adds the
+    scoped-change and commit-trailer checks against `REV..HEAD`. Outside a git repository the
+    checks that need git are skipped.
+    """
     root = ctx.loc.root
     if ctx.args.diff and root is None:
         raise AdrError("no-git", "--diff needs a git repository")
@@ -815,6 +835,14 @@ def main(
     cwd: Path | None = None,
     env: Mapping[str, str] | None = None,
 ) -> int:
+    """Parse `argv`, run the command and return its exit code: 0, 1 (`check` findings) or 3 (domain
+    error, reported by `output.error`). `cwd` and `env` default to the process's, for tests.
+
+    Flag combinations rejected with a usage error (exit 2): `--at` on a command that does not read
+    ADRs; `graph --rank` with `--format mermaid` or `dot`; `check --json` with `--format` other
+    than text; `check --fix` with `--at`; `new` without a title unless prompting is possible (a
+    terminal, no `--json`, no `-q`).
+    """
     parser = build_parser()
     args = parser.parse_args(argv)
     if args.at is not None and not args.reads:

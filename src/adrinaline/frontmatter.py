@@ -25,6 +25,7 @@ def _yaml() -> YAML:
 
 
 def split(text: str) -> tuple[CommentedMap, str]:
+    """Split a file into its frontmatter mapping and the body after the closing `---`."""
     lines = text.splitlines(keepends=True)
     if not lines or lines[0].rstrip("\r\n") != "---":
         raise FrontmatterError("missing frontmatter (file must start with '---')")
@@ -45,6 +46,7 @@ def split(text: str) -> tuple[CommentedMap, str]:
 
 
 def render(meta: CommentedMap, body: str) -> str:
+    """Inverse of `split`: comments, key order and quoting of `meta` survive."""
     if not meta:
         return f"---\n---\n{body}"
     buffer = StringIO()
@@ -53,6 +55,7 @@ def render(meta: CommentedMap, body: str) -> str:
 
 
 def flow(items: Iterable) -> CommentedSeq:
+    """A list that renders in flow style (`[1, 2]`) instead of one item per line."""
     seq = CommentedSeq(items)
     seq.fa.set_flow_style()
     return seq
