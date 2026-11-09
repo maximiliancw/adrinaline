@@ -24,14 +24,18 @@ An Architecture Decision Record (ADR) is a short file that records one significa
 - Commit traceability: `ADR:` trailers tie commits to decisions (`adr trace`), and `adr check --diff` flags governed changes that cite none.
 - Every command has `--json`; `adr prime` briefs an agent at session start.
 
-| | adrinaline | [adr-tools](https://github.com/npryce/adr-tools) | [log4brains](https://github.com/thomvaill/log4brains) | [MADR](https://adr.github.io/madr/) |
-|---|---|---|---|---|
-| What it is | Python CLI | Shell scripts | Node CLI + static site | Template only |
-| Create, link, supersede | yes | yes | create from template | no CLI |
-| Validation for CI (`adr check`) | yes | no | no | no |
-| Decision graph export | text, Mermaid, DOT, JSON | graph generation | web UI | no |
-| Agent briefing (`adr prime`) | yes | no | no | no |
-| Decision health (review dates, scope drift) | yes | no | no | no |
+## How it compares
+
+| | adrinaline | [adrs](https://github.com/joshrotenberg/adrs) | [adr-tools](https://github.com/npryce/adr-tools) | [log4brains](https://github.com/thomvaill/log4brains) | [MADR](https://adr.github.io/madr/) |
+|---|---|---|---|---|---|
+| What it is | Python CLI | Rust CLI | Shell scripts | Node CLI + static site | Template only |
+| Create, link, supersede | yes | yes | yes | create from template | no CLI |
+| Validation for CI | `adr check`, with GitHub and GitLab annotations | `adrs doctor` | no | no | no |
+| Decision graph export | text, Mermaid, DOT, JSON | DOT | DOT | web UI | no |
+| Tie decisions to code (`scope`, `adr for`) | yes | no | no | no | no |
+| Commit traceability (`ADR:` trailers) | yes | no | no | no | no |
+| Decision health (review dates, scope drift) | yes | no | no | no | no |
+| Agent integration | briefing (`adr prime`), bundled skill | MCP server | no | no | no |
 
 Cells for the other tools reflect their READMEs; "no" means the feature is not documented there.
 
@@ -239,12 +243,15 @@ Run `adr prime` at the start of every session and follow the ADRs it lists.
 | `list` | list ADRs |
 | `index` | print a Markdown index table |
 | `accept` / `reject` / `deprecate` | set an ADR's status |
+| `review` | record that an ADR was reviewed today |
 | `supersede` | mark OLD as superseded by NEW |
 | `link` / `unlink` | add or remove a relation |
 | `graph` | render the ADR graph |
 | `renumber` | give an ADR a new number and update references |
 | `log` | show the git history of an ADR |
+| `trace` | list the commits that cite an ADR |
 | `for` | list the ADRs in force that govern each path |
+| `drift` | show churn over each ADR's scope since its baseline |
 | `check` | validate all ADRs (text, GitHub annotations or GitLab Code Quality) |
 | `prime` | print the agent briefing |
 | `skill` | print or install the bundled agent skill |
