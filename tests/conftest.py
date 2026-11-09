@@ -4,17 +4,24 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 
 ENV = {k: v for k, v in os.environ.items() if k != "ADR_DIR"} | {
+    "HOME": tempfile.mkdtemp(),  # keep the real ~/.claude out of agent detection
     "GIT_CONFIG_GLOBAL": os.devnull,
     "GIT_CONFIG_NOSYSTEM": "1",
     "EDITOR": "true",
     "VISUAL": "true",
 }
+
+
+@pytest.fixture(autouse=True)
+def _home(monkeypatch):
+    monkeypatch.setenv("HOME", ENV["HOME"])  # in-process runs read Path.home() too
 
 
 @dataclass

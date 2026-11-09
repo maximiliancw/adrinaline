@@ -434,6 +434,14 @@ def test_init_agents_installs_the_skill_where_detected_agents_read_it(ws, marker
     assert ws.adr("init", "--agents", "--json").json()["agents"]["skill"] == []
 
 
+def test_init_agents_counts_a_user_wide_claude_md(ws, tmp_path):
+    home = tmp_path / "home"
+    (home / ".claude").mkdir(parents=True)
+    (home / ".claude/CLAUDE.md").write_text("x\n")
+    data = ws.adr("init", "--agents", "--json", env={"HOME": str(home)}).json()
+    assert {p.split("/")[0] for p in data["agents"]["skill"]} == {".claude", ".agents"}
+
+
 def test_init_agents_appends_to_existing_claude_md(ws):  # AC29
     ws.write("CLAUDE.md", "# Project\n\n- Use uv.")
     assert ws.adr("init", "--agents").code == 0
