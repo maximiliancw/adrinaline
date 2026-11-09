@@ -352,3 +352,11 @@ def test_fix_repairs_what_a_renamed_key_reveals(initialized):
     initialized.write("docs/adr/0003-y.md", f"{FRONT}supersedes: [2]\n---\n# Y\n")
     data = initialized.adr("check", "--fix", "--json").json()
     assert data["findings"] == []
+
+
+def test_fix_status_keeps_the_date(initialized):
+    FIXABLE["status-mismatch"](initialized)
+    initialized.adr("check", "--fix")
+    text = initialized.path_of(2).read_text()
+    assert re.search(r'^status: "?superseded"?$', text, re.M)
+    assert re.search(r'^date: "?2026-01-15"?$', text, re.M)

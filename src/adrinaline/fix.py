@@ -1,6 +1,5 @@
 """Repairs for mechanical `check` findings (ADR 0010)."""
 
-import datetime as dt
 from dataclasses import dataclass
 
 from adrinaline import repo
@@ -17,7 +16,7 @@ class Fix:
     message: str
 
 
-def apply(s: AdrSet, loc: Location, today: dt.date) -> list[Fix]:
+def apply(s: AdrSet, loc: Location) -> list[Fix]:
     """Repair the codes ADR 0010 lists, write the files, return what changed.
 
     Renamed keys return early; call again on a reloaded set until it returns nothing.
@@ -59,7 +58,8 @@ def apply(s: AdrSet, loc: Location, today: dt.date) -> list[Fix]:
                     )
     for adr in s.adrs:
         if adr.relations["superseded-by"] and adr.status is not Status.SUPERSEDED:
-            repo.set_status(adr, Status.SUPERSEDED, today)
+            adr.status = Status.SUPERSEDED  # keeps `date`: the decision date stands
+            adr.meta["status"] = Status.SUPERSEDED.value
             done(adr, "status-mismatch", f"{adr.id} status: superseded")
     for adr in changed.values():
         repo.save(adr)
