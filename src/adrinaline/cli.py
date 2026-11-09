@@ -12,7 +12,7 @@ from pathlib import Path
 
 from adrinaline import __version__, drift, git, prime, repo
 from adrinaline.check import run_checks
-from adrinaline.frontmatter import render, split
+from adrinaline.frontmatter import FrontmatterError, render, split
 from adrinaline.graph import (
     FORWARD,
     IMPACT,
@@ -36,12 +36,18 @@ from adrinaline.output import (
 
 AGENT_HINT = "Agents: run `adr prime` first. Every command accepts --json."
 PRIME_LINE = "Run `adr prime` at the start of every session and follow the ADRs it lists."
-SKILL_DIR = Path(".claude/skills/adr")
 SKILL_FILES = ("SKILL.md", "references/frontmatter.md")
+# Skill dir -> files that show an agent reads it. Codex, Cursor and Copilot read .agents/skills.
+AGENTS_SKILL = Path(".agents/skills/adr")
+SKILL_MARKERS = {
+    Path(".claude/skills/adr"): ("CLAUDE.md", ".claude"),
+    AGENTS_SKILL: ("AGENTS.md", ".agents", ".cursor", ".github"),
+}
+# Everywhere `adr check` looks for a stale skill, including hand installs init never writes.
+SKILL_DIRS = (*SKILL_MARKERS, Path(".cursor/skills/adr"), Path(".github/skills/adr"))
 NEXT_STEPS = {
     'adr new "Title" --scope "src/**"': "record the first decision (proposed)",
     "adr prime": "brief your coding agent",
-    f"adr skill --install {SKILL_DIR}": "give the agent the bundled skill",
 }
 
 
@@ -131,6 +137,12 @@ def _wire_instructions(target: Path) -> Path | None:
     return target
 
 
+def _skill_dirs(base: Path) -> list[Path]:
+    """Skill dirs of the agents this repo uses; .agents/skills when none is detected."""
+    found = [d for d, markers in SKILL_MARKERS.items() if any((base / m).exists() for m in markers)]
+    return found or [AGENTS_SKILL]
+
+
 def _install_skill(target: Path) -> list[Path]:
     """Write the skill files; return the ones whose content changed."""
     written = []
@@ -174,19 +186,19 @@ def cmd_init(ctx: Ctx) -> None:
         instructions, skill = None, []
         if args.agents or _wired(target) or _confirm(f"Add an `adr prime` line to {target.name}?"):
             instructions = _wire_instructions(target)
-        if args.agents or _confirm(f"Install the agent skill into {SKILL_DIR}?"):
-            skill = _install_skill(base / SKILL_DIR)
+        dirs = _skill_dirs(base)  # after wiring: a new AGENTS.md counts
+        if args.agents or _confirm(f"Install the agent skill into {', '.join(map(str, dirs))}?"):
+            skill = [p for d in dirs for p in _install_skill(base / d)]
         lines += [f"wrote {out.rel(p)}" for p in (instructions, *skill) if p]
         data["agents"] = {
             "instructions": out.rel(instructions) if instructions else None,
             "skill": [out.rel(p) for p in skill],
         }
-    skill_dir = base / SKILL_DIR
-    steps = {
-        cmd.replace(str(SKILL_DIR), os.path.relpath(skill_dir, ctx.cwd)): why
-        for cmd, why in NEXT_STEPS.items()
-        if "skill" not in cmd or not (skill_dir / "SKILL.md").exists()
-    }
+    steps = dict(NEXT_STEPS)
+    for d in _skill_dirs(base):
+        if not (base / d / "SKILL.md").exists():
+            install = f"adr skill --install {os.path.relpath(base / d, ctx.cwd)}"
+            steps[install] = "give the agent the bundled skill"
     data["next"] = list(steps)
     lines += ["", "Next steps", *(f"  {cmd:<42} {why}" for cmd, why in steps.items())]
     out.result(data, "\n".join(lines))
@@ -470,6 +482,7 @@ def cmd_check(ctx: Ctx) -> int:
         drift_commits=ctx.loc.drift_commits,
         range_commits=range_commits,
         uncommitted=uncommitted,
+        skills=_installed_skills(root or ctx.cwd),
     )
     failed = any(f.severity == "error" for f in findings) or (
         ctx.args.strict and any(f.severity != "note" for f in findings)
@@ -491,6 +504,21 @@ def cmd_check(ctx: Ctx) -> int:
         ) or ctx.out.paint("ok", "green")
         ctx.out.result({"ok": not failed, "findings": rows}, text)
     return EXIT_FINDINGS if failed else EXIT_OK
+
+
+def _installed_skills(base: Path) -> dict[str, str | None]:
+    """Installed skill dir -> its metadata.version (None when unreadable)."""
+    found: dict[str, str | None] = {}
+    for d in SKILL_DIRS:
+        path = base / d / "SKILL.md"
+        if not path.is_file():
+            continue
+        try:
+            version = split(path.read_text(encoding="utf-8"))[0].get("metadata", {}).get("version")
+            found[d.as_posix()] = None if version is None else str(version)
+        except FrontmatterError, AttributeError, OSError, UnicodeDecodeError:
+            found[d.as_posix()] = None
+    return found
 
 
 def _repo_path(raw: str, cwd: Path, base: Path) -> str:

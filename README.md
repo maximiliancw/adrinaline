@@ -35,7 +35,7 @@ An Architecture Decision Record (ADR) is a short file that records one significa
 | Tie decisions to code (`scope`, `adr for`) | yes | no | no | no | no |
 | Commit traceability (`ADR:` trailers) | yes | no | no | no | no |
 | Decision health (review dates, scope drift) | yes | no | no | no | no |
-| Agent integration | briefing (`adr prime`), bundled skill | MCP server | no | no | no |
+| Agent integration | any agent with a shell: skill + `adr prime`, no server | MCP server | no | no | no |
 
 Cells for the other tools reflect their READMEs; "no" means the feature is not documented there.
 
@@ -214,7 +214,7 @@ Git access is read-only, and `adr log` only sees committed changes, so commit fi
 
 ## For coding agents
 
-`adr init --agents` (or `adr init` on a terminal, which asks) adds the `adr prime` line below to `AGENTS.md` and installs the skill into `.claude/skills/adr`. For other agents, install the skill, which teaches them when and how to write ADRs:
+`adr init --agents` (or `adr init` on a terminal, which asks) adds the `adr prime` line below to `AGENTS.md` and installs the skill, which teaches agents when and how to write ADRs, where the agents it detects read it: `.claude/skills/adr` when the repo has `CLAUDE.md` or `.claude/`, `.agents/skills/adr` when it has `AGENTS.md`, `.agents/`, `.cursor/` or `.github/` (or nothing). To install by hand:
 
 | Agent | Install |
 |---|---|
@@ -223,7 +223,7 @@ Git access is read-only, and `adr log` only sees committed changes, so commit fi
 | Cursor | `adr skill --install .cursor/skills/adr` (also reads `AGENTS.md`) |
 | GitHub Copilot | `adr skill --install .github/skills/adr` |
 
-Codex, Cursor and Copilot all read `.agents/skills/`, so one install there covers all three. Rerun the install after upgrading `adr`.
+Codex, Cursor and Copilot all read `.agents/skills/`, so one install there covers all three. Rerun the install after upgrading `adr`; `adr check` reports `stale-skill` for an installed skill from another version.
 
 Or add one line to `AGENTS.md` (or your agent's equivalent):
 

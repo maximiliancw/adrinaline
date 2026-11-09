@@ -315,7 +315,7 @@ Global flags: `--json` (machine output), `--dir PATH` (overrides §5),
 
 | Command | Effect |
 |---|---|
-| `adr init [--force] [--agents]` | Create the ADR dir, `.template.md` and `0001-record-architecture-decisions.md` (status `accepted`). Idempotent: existing files are left alone unless `--force`. Human output ends with a *Next steps* block (`adr new`, `adr prime`, `adr skill --install` unless the skill is installed); `--json` adds `"next"`. On a terminal (stdin and stdout are TTYs, no `--json`/`-q`) it then offers the agent wiring of §14 as two yes/no prompts; `--agents` performs both without asking. `--json` adds `"agents": {"instructions": path \| null, "skill": [paths]}` when wiring ran. |
+| `adr init [--force] [--agents]` | Create the ADR dir, `.template.md` and `0001-record-architecture-decisions.md` (status `accepted`). Idempotent: existing files are left alone unless `--force`. Human output ends with a *Next steps* block (`adr new`, `adr prime`, `adr skill --install DIR` for each detected skill dir (§14) that has no skill); `--json` adds `"next"`. On a terminal (stdin and stdout are TTYs, no `--json`/`-q`) it then offers the agent wiring of §14 as two yes/no prompts; `--agents` performs both without asking. `--json` adds `"agents": {"instructions": path \| null, "skill": [paths]}` when wiring ran. |
 | `adr new [TITLE] [--accepted] [--force] [--tag T]... [--scope GLOB]... [--review-by DATE] [--supersedes REF]... [--amends REF]... [--depends-on REF]... [--relates-to REF]... [--body-file PATH\|-] [--edit]` | Allocate the next number (§10), render the template, write the file, apply relations. `--body-file` replaces the template body below the title (`-` reads stdin). `--edit` opens `$VISUAL`/`$EDITOR` afterwards. `--scope` sets a repository-relative glob in the `scope` list; absolute or `..` globs fail with `bad-scope` before any file is written. `--review-by` sets the review date (`bad-date` if not ISO). `--force` lets `--supersedes` target an ADR that is not `accepted`. Prints the new path. Without TITLE on a terminal (and without `--json`/`-q`), prompts for the title (until non-blank), then for `--supersedes` and `--scope` unless given; otherwise a missing TITLE is a usage error. Closed input at any prompt fails with `io`. |
 | `adr show REF [--raw]` | Show one ADR: metadata (including the review line: `review-by`, `reviewed`, `revisit-if` when set), resolved relation titles, body. `--raw` prints the file verbatim. |
 | `adr list [--status S]... [--tag T]...` | One line per ADR, ordered by number: number, status, date, title. |
@@ -384,6 +384,7 @@ Each finding has a stable `code`, a `severity` (`error`, `warning` or
 | `exempt-change` | note | With `--diff` only: such a commit cites none of its governing ADRs but carries `ADR-Exempt:`; the message names the short hash, subject and reason |
 | `review-overdue` | warning | An ADR in force has a `review-by` before today; the message names the date and `adr review N` |
 | `stale-decision` | warning | Only when `drift-commits` (§5) is above 0 and there is a git repository: an ADR in force has churn (§8) of at least `drift-commits` commits; the message names the count, the baseline and `adr review N` |
+| `stale-skill` | warning | A `SKILL.md` in `.claude/skills/adr`, `.agents/skills/adr`, `.cursor/skills/adr` or `.github/skills/adr` at the git root (or current directory) has no `metadata.version` or one whose release (its leading numeric segments, so `0.3.1.dev16+gabc` counts as `0.3.1`) differs from the running `adr`'s; path is that `SKILL.md`, the message names both versions and `adr skill --install DIR`. No installed skill, no finding |
 
 `adr check --fix` is not in v1.
 
@@ -512,8 +513,12 @@ cites nothing.
   ``Run `adr prime` at the start of every session and follow the ADRs it lists.``
   to `AGENTS.md` at the git root (or current directory), or to `CLAUDE.md` when
   only that file exists; create `AGENTS.md` when neither exists; skip when the
-  file already mentions `adr prime`. Install the skill (§12) into
-  `.claude/skills/adr`. Both steps are idempotent.
+  file already mentions `adr prime`. Then install the skill (§12) into the
+  skill dir of each agent detected at that root: `.claude/skills/adr` when
+  `CLAUDE.md` or `.claude/` exists; `.agents/skills/adr` (read by Codex,
+  Cursor and Copilot) when `AGENTS.md`, `.agents/`, `.cursor/` or `.github/`
+  exists, or when nothing is detected. Each dir is written at most once.
+  Both steps are idempotent.
 
 ## 15. Testing and quality
 
@@ -607,7 +612,8 @@ Each criterion is an automated test.
     absent and `--budget` output is unchanged.
 29. `adr init --agents` in a fresh repo appends the `adr prime` line to
     `AGENTS.md` (to `CLAUDE.md` when only that exists) and writes
-    `.claude/skills/adr/SKILL.md`; a second run leaves `AGENTS.md`
+    `.agents/skills/adr/SKILL.md` (`.claude/skills/adr/SKILL.md` when only
+    `CLAUDE.md` exists; both when `.claude/` exists too); a second run leaves `AGENTS.md`
     byte-identical. Plain `adr init` off a terminal writes nothing outside the
     ADR directory and prints a *Next steps* block. On a terminal, `adr init`
     asks before each wiring step and `adr new` without TITLE prompts for the
