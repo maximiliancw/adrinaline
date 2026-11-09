@@ -17,7 +17,7 @@ An Architecture Decision Record (ADR) is a short file that records one significa
 - One command bootstraps the practice: `adr init`.
 - Plain Markdown with YAML frontmatter; hand edits stay first-class.
 - Sequential numbering, with collisions between branches detected early.
-- `adr check` validates the set in CI or pre-commit.
+- `adr check` validates the set in CI or pre-commit, with GitHub annotations or a GitLab Code Quality report.
 - Read-only git integration: it never stages, commits or fetches.
 - The ADR set is a graph (text, Mermaid, DOT, JSON), tied to code via `scope` globs and queryable at any git revision.
 - Decision health: `review-by` dates and churn over an ADR's `scope` (`adr drift`), reported by `adr check` and `adr prime`.
@@ -161,7 +161,25 @@ adr check --diff origin/main --strict      # CI gate: changed files governed by 
   with:
     fetch-depth: 0   # shallow or fresh clones lack origin/main history, so --diff fails
 - uses: astral-sh/setup-uv@v10.3.3
-- run: uvx adrinaline check --diff origin/main --strict
+- run: uvx adrinaline check --diff origin/main --strict --format github  # annotates the PR
+```
+
+GitLab, with findings in the merge request's Code Quality widget:
+
+```yaml
+adr-check:
+  image: ghcr.io/astral-sh/uv:python3.14-bookworm  # non-slim: --diff needs git
+  variables:
+    GIT_DEPTH: 0   # --diff needs the target branch history
+  script:
+    - git fetch origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+    - uvx adrinaline check --diff "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" --strict --format gitlab > gl-code-quality.json
+  artifacts:
+    when: always
+    reports:
+      codequality: gl-code-quality.json
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 ```
 
 ### pre-commit
@@ -227,7 +245,7 @@ Run `adr prime` at the start of every session and follow the ADRs it lists.
 | `renumber` | give an ADR a new number and update references |
 | `log` | show the git history of an ADR |
 | `for` | list the ADRs in force that govern each path |
-| `check` | validate all ADRs |
+| `check` | validate all ADRs (text, GitHub annotations or GitLab Code Quality) |
 | `prime` | print the agent briefing |
 | `skill` | print or install the bundled agent skill |
 

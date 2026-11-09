@@ -1,9 +1,11 @@
+import json
 import re
 from pathlib import Path
 
 import pytest
 
 from adrinaline.check import run_checks
+from adrinaline.output import github_annotation, gitlab_report
 from adrinaline.repo import parse_all
 
 GOOD = "---\nstatus: accepted\ndate: 2026-01-15\n---\n# A\n"
@@ -228,3 +230,49 @@ def test_stale_decision_respects_the_threshold(initialized):  # AC27
     assert len(found) == 1 and "2 commits" in found[0]["message"]
     assert "adr review 2" in found[0]["message"]
     assert found[0]["path"] == "docs/adr/0002-db.md"
+
+
+# --- CI annotation formats ---
+
+SNAPSHOTS = Path(__file__).parent / "snapshots"
+
+
+@pytest.mark.parametrize("fmt", ["github", "gitlab"])
+def test_check_ci_formats_match_snapshots(initialized, fmt):
+    initialized.write_adr(3, "x", depends_on=[7])  # file error, set-wide warning
+    result = initialized.adr("check", "--format", fmt)
+    assert result.code == 1, result.err
+    assert result.out == (SNAPSHOTS / f"check.{fmt}").read_text()
+
+
+def test_check_ci_formats_report_notes(initialized):
+    _exempt(initialized)
+    gh = initialized.adr("check", "--diff", "base", "--format", "github").out
+    assert "::notice file=src/db/conn.py,line=1,title=exempt-change::" in gh
+    note = {"code": "c", "severity": "note", "path": "", "message": "m"}
+    assert json.loads(gitlab_report([note], "docs/adr"))[0]["severity"] == "info"
+
+
+def test_check_ci_formats_when_clean(initialized):
+    assert initialized.adr("check", "--format", "github").out == ""
+    assert initialized.adr("check", "--format", "gitlab").out == "[]\n"
+
+
+def test_check_ci_formats_ignore_quiet(initialized):
+    assert initialized.adr("-q", "check", "--format", "gitlab").out == "[]\n"
+
+
+def test_gitlab_fingerprints_ignore_the_message_and_stay_unique():
+    row = {"code": "c", "severity": "warning", "path": "p", "message": "abc123 touched p"}
+    first = json.loads(gitlab_report([row, row | {"message": "x"}], "d"))
+    again = json.loads(gitlab_report([row | {"message": "def456 touched p"}], "d"))
+    assert first[0]["fingerprint"] == again[0]["fingerprint"] != first[1]["fingerprint"]
+
+
+def test_check_format_with_json_is_a_usage_error(initialized):
+    assert initialized.adr("check", "--format", "github", "--json").code == 2
+
+
+def test_github_annotation_escapes_workflow_command_characters():
+    row = {"code": "c", "severity": "warning", "path": "a,b:c.md", "message": "50%\nnext"}
+    assert github_annotation(row) == "::warning file=a%2Cb%3Ac.md,line=1,title=c::50%25%0Anext"
