@@ -15,8 +15,6 @@ SNAKE_KEYS = {
     "superseded_by",
     "depends_on",
     "relates_to",
-    "amended_by",
-    "dependency_of",
     "review_by",
     "revisit_if",
 }
