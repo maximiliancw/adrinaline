@@ -473,7 +473,7 @@ def cmd_check(ctx: Ctx) -> int:
     at = getattr(ctx.args, "at", None)
     s = ctx.load()
     fixed: list[fix.Fix] = []
-    while ctx.args.fix and (batch := fix.apply(s, ctx.loc, today())):
+    while ctx.args.fix and (batch := fix.apply(s, ctx.loc)):
         fixed += batch
         s = ctx.load()
     changed = range_commits = uncommitted = None
