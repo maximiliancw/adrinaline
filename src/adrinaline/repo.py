@@ -1,6 +1,7 @@
 """Locate the ADR directory, load ADRs, resolve references and write files."""
 
 import datetime as dt
+import difflib
 import os
 import re
 import shutil
@@ -159,9 +160,15 @@ def resolve(adrs: list[Adr], ref: str) -> Adr:
     if ref.isascii() and ref.isdigit():
         hits = [adr for adr in adrs if adr.number == int(ref)]
     else:
-        hits = [adr for adr in adrs if ref.lower() in adr.slug]
+        needle = _slug(ref)  # "Use PostgreSQL" == use-postgresql
+        hits = [adr for adr in adrs if adr.slug == needle] or [
+            adr for adr in adrs if needle and needle in adr.slug
+        ]
     if not hits:
-        raise AdrError("not-found", f"no ADR matches {ref!r}", ref=ref)
+        by_slug = {a.slug: a.path.name for a in reversed(adrs)}  # first file per slug wins
+        names = [by_slug[s] for s in difflib.get_close_matches(_slug(ref), by_slug, n=3)]
+        hint = f"; did you mean {', '.join(n.removesuffix('.md') for n in names)}?" if names else ""
+        raise AdrError("not-found", f"no ADR matches {ref!r}{hint}", ref=ref, candidates=names)
     if len(hits) > 1:
         names = [adr.path.name for adr in hits]
         raise AdrError(
@@ -227,9 +234,13 @@ def transition(adr: Adr, to: Status, *, force: bool = False, today: dt.date) -> 
     set_status(adr, to, today)
 
 
+def _slug(text: str) -> str:
+    ascii_text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
+    return re.sub(r"[^a-z0-9]+", "-", ascii_text.lower()).strip("-")
+
+
 def slugify(title: str) -> str:
-    ascii_title = unicodedata.normalize("NFKD", title).encode("ascii", "ignore").decode()
-    return re.sub(r"[^a-z0-9]+", "-", ascii_title.lower()).strip("-") or "untitled"
+    return _slug(title) or "untitled"
 
 
 def data_text(name: str) -> str:
