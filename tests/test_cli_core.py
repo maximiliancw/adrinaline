@@ -400,3 +400,10 @@ def test_title_form_reference_and_suggestion(initialized):  # AC30
     assert error["details"]["candidates"][0] == "0002-use-postgresql.md"
 
 
+def test_no_colour_off_a_terminal(initialized, tmp_path):
+    from adrinaline.output import Out
+
+    for args in (("list",), ("check",), ("show", "1")):
+        assert "\x1b" not in initialized.adr(*args).out
+    out = Out(json_mode=False, quiet=False, base=tmp_path, color=True)
+    assert out.paint("x", "red") == "\x1b[31mx\x1b[0m"

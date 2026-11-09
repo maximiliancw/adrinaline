@@ -17,6 +17,7 @@
 
 An ADR `REF` is a number in any padding (`7`, `0007`), a slug (`use-postgresql`), a title (`"Use PostgreSQL"`, slugified before matching) or a substring of the slug; an exact slug wins over substring matches, and a miss suggests close slugs. `--at REF` and `--diff REF` take a git revision.
 
+Human output is coloured on a terminal; it is plain when stdout is not a TTY, when `NO_COLOR` is set, when `TERM` is `dumb`, and always with `--json`.
 
 ## Commands
 

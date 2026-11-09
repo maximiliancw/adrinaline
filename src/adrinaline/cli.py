@@ -44,14 +44,14 @@ def today() -> dt.date:
     return dt.date.today()
 
 
-def list_line(adr: Adr) -> str:
-    return f"{adr.id}  {adr.status:<10}  {adr.date}  {adr.title}"
+def list_line(adr: Adr, out: Out) -> str:
+    return f"{adr.id}  {out.status(adr.status, 10)}  {adr.date}  {adr.title}"
 
 
 def show_text(
     adr: Adr, relations: dict[str, list[int]], by_number: dict[int, Adr], out: Out
 ) -> str:
-    lines = [f"{adr.id} {adr.title}", f"status: {adr.status}   date: {adr.date}"]
+    lines = [f"{adr.id} {adr.title}", f"status: {out.status(adr.status)}   date: {adr.date}"]
     if adr.tags:
         lines.append("tags: " + ", ".join(adr.tags))
     if adr.scope:
@@ -290,7 +290,9 @@ def cmd_list(ctx: Ctx) -> None:
         if (not args.status or adr.status in args.status)
         and (not args.tag or set(args.tag) & set(adr.tags))
     ]
-    ctx.out.result([adr_dict(a, ctx.out) for a in adrs], "\n".join(list_line(a) for a in adrs))
+    ctx.out.result(
+        [adr_dict(a, ctx.out) for a in adrs], "\n".join(list_line(a, ctx.out) for a in adrs)
+    )
 
 
 def cmd_index(ctx: Ctx) -> None:
@@ -344,7 +346,11 @@ def cmd_check(ctx: Ctx) -> int:
         asdict(f) | {"path": ctx.out.rel(Path(f.path)) if Path(f.path).is_absolute() else f.path}
         for f in findings
     ]
-    text = "\n".join(f"{r['severity']}: {r['code']}: {r['message']}" for r in rows) or "ok"
+    text = "\n".join(
+        f"{ctx.out.paint(r['severity'], 'red' if r['severity'] == 'error' else 'yellow')}: "
+        f"{r['code']}: {r['message']}"
+        for r in rows
+    ) or ctx.out.paint("ok", "green")
     ctx.out.result({"ok": not failed, "findings": rows}, text)
     return EXIT_FINDINGS if failed else EXIT_OK
 
@@ -395,7 +401,8 @@ def cmd_drift(ctx: Ctx) -> None:
     for d in drifts:
         last = d.last  # local name so the type checker narrows Commit | None once
         line = (
-            f"{d.adr.id}  {d.adr.title}  {len(d.commits)} commits / {len(d.files)} files "
+            f"{ctx.out.paint(d.adr.id, 'bold')}  {d.adr.title}  "
+            f"{len(d.commits)} commits / {len(d.files)} files "
             f"since {d.adr.baseline}"
         )
         if last:
@@ -627,7 +634,13 @@ def main(
     env = os.environ if env is None else env
     try:
         loc = repo.locate(cwd, env, args.dir)
-        out = Out(json_mode=args.json, quiet=args.quiet, base=loc.root or cwd)
+        color = (
+            not args.json
+            and sys.stdout.isatty()
+            and not env.get("NO_COLOR")
+            and env.get("TERM") != "dumb"
+        )
+        out = Out(json_mode=args.json, quiet=args.quiet, base=loc.root or cwd, color=color)
         return args.func(Ctx(args, loc, out, cwd)) or EXIT_OK
     except AdrError as exc:
         return error(exc, args.json)

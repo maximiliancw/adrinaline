@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from adrinaline.model import STORED_RELATIONS, Adr, AdrError
+from adrinaline.model import STORED_RELATIONS, Adr, AdrError, Status
 
 EXIT_OK = 0
 EXIT_FINDINGS = 1
@@ -21,6 +21,8 @@ _KNOWN_KEYS = {
     "revisit-if",
     *STORED_RELATIONS,
 }
+_STYLES = {"red": "31", "green": "32", "yellow": "33", "bold": "1", "dim": "2"}
+STATUS_STYLE = {Status.ACCEPTED: "green", Status.PROPOSED: "yellow"}  # the rest are dim
 
 
 def dumps(data: Any) -> str:
@@ -28,10 +30,17 @@ def dumps(data: Any) -> str:
 
 
 class Out:
-    def __init__(self, *, json_mode: bool, quiet: bool, base: Path) -> None:
+    def __init__(self, *, json_mode: bool, quiet: bool, base: Path, color: bool = False) -> None:
         self.json_mode = json_mode
         self.quiet = quiet
         self.base = base.resolve()
+        self.color = color
+
+    def paint(self, text: str, style: str) -> str:
+        return f"\x1b[{_STYLES[style]}m{text}\x1b[0m" if self.color else text
+
+    def status(self, status: Status, width: int = 0) -> str:
+        return self.paint(f"{status:<{width}}", STATUS_STYLE.get(status, "dim"))
 
     def rel(self, path: Path) -> str:
         try:
