@@ -1,6 +1,6 @@
 ---
-status: proposed
-date: 2026-11-09
+status: accepted
+date: 2026-11-10
 scope: [src/adrinaline/cli.py, src/adrinaline/drift.py, src/adrinaline/check.py, src/adrinaline/model.py, src/adrinaline/repo.py, src/adrinaline/graph.py]
 amends: [3, 8, 9, 10]
 ---
