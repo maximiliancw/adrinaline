@@ -647,7 +647,7 @@ def cmd_skill(ctx: Ctx) -> None:
 
 
 def _skill_text(name: str) -> str:
-    return repo.data_text(name).replace("{version}", __version__)
+    return repo.data_text(f"skills/adr/{name}").replace("{version}", __version__)
 
 
 def build_parser() -> argparse.ArgumentParser:

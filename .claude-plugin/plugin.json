@@ -1,0 +1,8 @@
+{
+  "name": "adrinaline",
+  "description": "Git-native Architecture Decision Records: the adr skill plus a SessionStart hook that runs `adr prime`.",
+  "author": { "name": "Max Wolf" },
+  "repository": "https://github.com/maximiliancw/adrinaline",
+  "license": "MIT",
+  "skills": "./src/adrinaline/data/skills/"
+}

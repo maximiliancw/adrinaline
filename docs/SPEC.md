@@ -384,7 +384,7 @@ Each finding has a stable `code`, a `severity` (`error`, `warning` or
 | `exempt-change` | note | With `--diff` only: such a commit cites none of its governing ADRs but carries `ADR-Exempt:`; the message names the short hash, subject and reason |
 | `review-overdue` | warning | An ADR in force has a `review-by` before today; the message names the date and `adr review N` |
 | `stale-decision` | warning | Only when `drift-commits` (§5) is above 0 and there is a git repository: an ADR in force has churn (§8) of at least `drift-commits` commits; the message names the count, the baseline and `adr review N` |
-| `stale-skill` | warning | A `SKILL.md` in `.claude/skills/adr`, `.agents/skills/adr`, `.cursor/skills/adr` or `.github/skills/adr` at the git root (or current directory) has no `metadata.version` or one whose release (its leading numeric segments, so `0.3.1.dev16+gabc` counts as `0.3.1`) differs from the running `adr`'s; path is that `SKILL.md`, the message names both versions and `adr skill --install DIR`. No installed skill, no finding |
+| `stale-skill` | warning | A `SKILL.md` in `.claude/skills/adr`, `.agents/skills/adr`, `.cursor/skills/adr` or `.github/skills/adr` at the git root (or current directory) has no `metadata.version` or one whose release (its leading numeric segments, so `0.3.1.dev16+gabc` counts as `0.3.1`) differs from the running `adr`'s; a `metadata.version` of `"{version}"` (left unfilled by `npx skills add` and the Claude Code plugin, whose own update commands refresh the skill) gives no finding; path is that `SKILL.md`, the message names both versions and `adr skill --install DIR`. No installed skill, no finding |
 
 `adr check --fix` is not in v1.
 
@@ -472,7 +472,7 @@ session start") or a session-start hook.
 
 ### Skill
 
-`data/SKILL.md` follows the Agent Skills format (name, description,
+`data/skills/adr/SKILL.md` follows the Agent Skills format (name, description,
 instructions). It tells agents when a decision deserves an ADR, how to write
 one with `adr new --body-file -`, how to supersede or amend, and how to record
 a review with `adr review`, and how to cite ADRs in commit trailers.

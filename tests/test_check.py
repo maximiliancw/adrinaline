@@ -171,6 +171,8 @@ def test_stale_skill_only_for_an_older_installed_version(initialized):
     path = initialized.root / ".agents/skills/adr/SKILL.md"
     path.write_text(re.sub(r"version: .*", f'version: "{release}.dev1+gabc"', path.read_text()))
     assert initialized.adr("check", "--json").json()["findings"] == []  # same release
+    path.write_text(re.sub(r"version: .*", 'version: "{version}"', path.read_text()))
+    assert initialized.adr("check", "--json").json()["findings"] == []  # npx skills / plugin copy
     CLI_CASES["stale-skill"](initialized)
     [finding] = initialized.adr("check", "--json").json()["findings"]
     assert finding["path"] == ".claude/skills/adr/SKILL.md"

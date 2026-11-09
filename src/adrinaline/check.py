@@ -196,7 +196,8 @@ def _stale_skills(skills: dict[str, str | None]) -> list[Finding]:
             f"reinstall with `adr skill --install {d}`",
         )
         for d, version in skills.items()
-        if _release(version) != _release(__version__)
+        # "{version}" unfilled: installed by `npx skills` or the plugin, which update it themselves
+        if version != "{version}" and _release(version) != _release(__version__)
     ]
 
 

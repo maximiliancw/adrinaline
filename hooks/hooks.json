@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v adr >/dev/null && adr prime 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}

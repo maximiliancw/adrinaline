@@ -1,4 +1,5 @@
 import argparse
+import json
 import subprocess
 import zipfile
 from pathlib import Path
@@ -23,7 +24,12 @@ def dist(tmp_path_factory):
 def test_wheel_contains_data_files(dist):
     wheel = next(dist.glob("adrinaline-*.whl"))
     names = set(zipfile.ZipFile(wheel).namelist())
-    for data in ("template.md", "0001.md", "SKILL.md", "references/frontmatter.md"):
+    for data in (
+        "template.md",
+        "0001.md",
+        "skills/adr/SKILL.md",
+        "skills/adr/references/frontmatter.md",
+    ):
         assert f"adrinaline/data/{data}" in names
 
 
@@ -44,3 +50,13 @@ def test_cli_reference_lists_every_command():
             for flag in action.option_strings:
                 if flag.startswith("--") and flag != "--help":
                     assert flag in page, f"{name} {flag}"
+
+
+def test_plugin_manifests_point_at_the_packaged_skill():
+    plugin = json.loads((ROOT / ".claude-plugin/plugin.json").read_text())
+    assert (ROOT / plugin["skills"] / "adr/SKILL.md").is_file()
+    market = json.loads((ROOT / ".claude-plugin/marketplace.json").read_text())
+    assert [p["name"] for p in market["plugins"]] == [plugin["name"]]
+    hooks = json.loads((ROOT / "hooks/hooks.json").read_text())
+    [entry] = hooks["hooks"]["SessionStart"]
+    assert "adr prime" in entry["hooks"][0]["command"]
