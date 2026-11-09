@@ -394,6 +394,13 @@ empty for set-wide findings) and a `message`.
 - Lists are JSON arrays. `check` returns `{"ok": bool, "findings": […]}`.
 - Errors: `{"error": {"code": "not-found", "message": "…", "details": {…}}}`.
 
+### Human output
+
+Human output (without `--json`) uses ANSI colour for statuses, `check`
+severities and its `ok`, and `drift` ids when stdout is a terminal, `NO_COLOR` is unset and
+`TERM` is not `dumb`. Piped output, `--json`, `prime` and `index` never contain
+escape codes.
+
 ### Exit codes
 
 | Code | Meaning |
