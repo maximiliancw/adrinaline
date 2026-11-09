@@ -27,6 +27,14 @@ from adrinaline.model import LINKABLE, Adr, AdrError, Status
 from adrinaline.output import EXIT_FINDINGS, EXIT_OK, Out, adr_dict, error
 
 AGENT_HINT = "Agents: run `adr prime` first. Every command accepts --json."
+PRIME_LINE = "Run `adr prime` at the start of every session and follow the ADRs it lists."
+SKILL_DIR = Path(".claude/skills/adr")
+SKILL_FILES = ("SKILL.md", "references/frontmatter.md")
+NEXT_STEPS = {
+    'adr new "Title" --scope "src/**"': "record the first decision (proposed)",
+    "adr prime": "brief your coding agent",
+    f"adr skill --install {SKILL_DIR}": "give the agent the bundled skill",
+}
 
 
 @dataclass
@@ -96,8 +104,41 @@ def show_text(
     return "\n".join(lines)
 
 
+def _instructions_file(base: Path) -> Path:
+    agents, claude = base / "AGENTS.md", base / "CLAUDE.md"
+    return claude if not agents.exists() and claude.exists() else agents
+
+
+def _wired(target: Path) -> bool:
+    return target.exists() and "adr prime" in target.read_text(encoding="utf-8")
+
+
+def _wire_instructions(target: Path) -> Path | None:
+    if _wired(target):
+        return None
+    text = target.read_text(encoding="utf-8") if target.exists() else ""
+    if text and not text.endswith("\n"):
+        text += "\n"
+    repo.atomic_write(target, text + PRIME_LINE + "\n")
+    return target
+
+
+def _install_skill(target: Path) -> list[Path]:
+    """Write the skill files; return the ones whose content changed."""
+    written = []
+    for name in SKILL_FILES:
+        path, text = target / name, _skill_text(name)
+        if path.exists() and path.read_text(encoding="utf-8") == text:
+            continue
+        path.parent.mkdir(parents=True, exist_ok=True)
+        repo.atomic_write(path, text)
+        written.append(path)
+    return written
+
+
 def cmd_init(ctx: Ctx) -> None:
-    loc, force = ctx.loc, ctx.args.force
+    loc, args, out = ctx.loc, ctx.args, ctx.out
+    force = args.force
     loc.dir.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
     if force or not loc.template.exists():
@@ -113,9 +154,34 @@ def cmd_init(ctx: Ctx) -> None:
             meta["decision-makers"] = repo.flow([name])
         repo.atomic_write(target, render(meta, body))
         written.append(target)
-    paths = [ctx.out.rel(p) for p in written]
-    text = "\n".join(f"wrote {p}" for p in paths) or "already initialised"
-    ctx.out.result({"dir": ctx.out.rel(loc.dir), "written": paths}, text)
+    paths = [out.rel(p) for p in written]
+    lines = [f"wrote {p}" for p in paths] or ["already initialised"]
+    data: dict = {"dir": out.rel(loc.dir), "written": paths}
+    base = loc.root or ctx.cwd
+    if args.agents or _prompting(args):
+        if not args.agents:  # show what was written before asking about more
+            print("\n".join(lines), flush=True)
+            lines = []
+        target = _instructions_file(base)
+        instructions, skill = None, []
+        if args.agents or _wired(target) or _confirm(f"Add an `adr prime` line to {target.name}?"):
+            instructions = _wire_instructions(target)
+        if args.agents or _confirm(f"Install the agent skill into {SKILL_DIR}?"):
+            skill = _install_skill(base / SKILL_DIR)
+        lines += [f"wrote {out.rel(p)}" for p in (instructions, *skill) if p]
+        data["agents"] = {
+            "instructions": out.rel(instructions) if instructions else None,
+            "skill": [out.rel(p) for p in skill],
+        }
+    skill_dir = base / SKILL_DIR
+    steps = {
+        cmd.replace(str(SKILL_DIR), os.path.relpath(skill_dir, ctx.cwd)): why
+        for cmd, why in NEXT_STEPS.items()
+        if "skill" not in cmd or not (skill_dir / "SKILL.md").exists()
+    }
+    data["next"] = list(steps)
+    lines += ["", "Next steps", *(f"  {cmd:<42} {why}" for cmd, why in steps.items())]
+    out.result(data, "\n".join(lines))
 
 
 def _edit(path: Path) -> None:
@@ -492,13 +558,9 @@ def cmd_renumber(ctx: Ctx) -> None:
 
 def cmd_skill(ctx: Ctx) -> None:
     if ctx.args.install:
-        names = ("SKILL.md", "references/frontmatter.md")
-        paths = []
-        for name in names:
-            target = ctx.cwd / ctx.args.install / name
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(_skill_text(name), encoding="utf-8")
-            paths.append(str(target))
+        target = ctx.cwd / ctx.args.install
+        _install_skill(target)
+        paths = [str(target / name) for name in SKILL_FILES]
         ctx.out.result({"installed": paths}, "\n".join(paths))
         return
     text = _skill_text("SKILL.md")
@@ -555,6 +617,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = add("init", cmd_init, "create the ADR directory, template and ADR 0001")
     p.add_argument("--force", action="store_true", help="overwrite the template and ADR 0001")
+    p.add_argument(
+        "--agents",
+        action="store_true",
+        help="add the `adr prime` line to AGENTS.md and install the skill, without asking",
+    )
 
     p = add("new", cmd_new, "create a new ADR")
     p.add_argument("title", nargs="?", type=nonblank, help="prompted for on a terminal if omitted")

@@ -388,6 +388,40 @@ def test_show_prints_review_line(initialized):
     w.write_adr(2, "x", review_by="2099-01-01", revisit_if="load doubles")
     out = w.adr("show", "2").out
     assert "review-by: 2099-01-01" in out and "revisit-if: load doubles" in out
+
+
+def test_init_prints_next_steps_and_writes_nothing_outside_the_adr_dir(ws):  # AC29
+    result = ws.adr("init")
+    assert result.code == 0 and "Next steps" in result.out and "adr prime" in result.out
+    assert not (ws.root / "AGENTS.md").exists() and not (ws.root / ".claude").exists()
+    assert set(ws.adr("init", "--json").json()) == {"dir", "written", "next"}
+
+
+def test_init_agents_wires_agents_md_and_skill_idempotently(ws):  # AC29
+    data = ws.adr("init", "--agents", "--json").json()
+    assert data["agents"] == {
+        "instructions": "AGENTS.md",
+        "skill": [".claude/skills/adr/SKILL.md", ".claude/skills/adr/references/frontmatter.md"],
+    }
+    assert "adr skill --install" not in "".join(data["next"])
+    agents = (ws.root / "AGENTS.md").read_text()
+    assert agents == "Run `adr prime` at the start of every session and follow the ADRs it lists.\n"
+    assert "name: adr" in (ws.root / ".claude/skills/adr/SKILL.md").read_text()
+    again = ws.adr("init", "--agents", "--json").json()
+    assert again["agents"] == {"instructions": None, "skill": []}
+    assert (ws.root / "AGENTS.md").read_text() == agents
+
+
+def test_init_agents_appends_to_existing_claude_md(ws):  # AC29
+    ws.write("CLAUDE.md", "# Project\n\n- Use uv.")
+    assert ws.adr("init", "--agents").code == 0
+    assert not (ws.root / "AGENTS.md").exists()
+    assert (ws.root / "CLAUDE.md").read_text() == (
+        "# Project\n\n- Use uv.\nRun `adr prime` at the start of every session "
+        "and follow the ADRs it lists.\n"
+    )
+
+
 def test_new_without_title_off_a_terminal_is_a_usage_error(initialized):
     result = initialized.adr("new")
     assert result.code == 2 and "title" in result.err

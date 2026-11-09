@@ -49,7 +49,7 @@ Requires git. Python 3.14+ is needed; `uv tool install` and `uvx` download it au
 ## Quick start
 
 ```bash
-adr init                                   # docs/adr/.template.md + 0001-record-architecture-decisions.md
+adr init                                   # docs/adr/.template.md + 0001-record-architecture-decisions.md, then next steps
 adr new "Use PostgreSQL" --tag storage --scope "src/db/**"  # docs/adr/0002-use-postgresql.md (proposed)
 adr accept 2
 adr new "Use PostgreSQL 17" --supersedes 2 --accepted
@@ -190,7 +190,7 @@ Git access is read-only, and `adr log` only sees committed changes, so commit fi
 
 ## For coding agents
 
-Install the skill, which teaches agents when and how to write ADRs:
+`adr init --agents` (or `adr init` on a terminal, which asks) adds the `adr prime` line below to `AGENTS.md` and installs the skill into `.claude/skills/adr`. For other agents, install the skill, which teaches them when and how to write ADRs:
 
 | Agent | Install |
 |---|---|
