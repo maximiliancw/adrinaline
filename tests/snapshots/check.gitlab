@@ -1,0 +1,26 @@
+[
+  {
+    "description": "0002 is missing",
+    "check_name": "number-gap",
+    "fingerprint": "3edfddf8a344d99922ffa20dd082e47a2dcb5d4f8d4be3e1c5038875dbf782c6",
+    "severity": "minor",
+    "location": {
+      "path": "docs/adr",
+      "lines": {
+        "begin": 1
+      }
+    }
+  },
+  {
+    "description": "0003 depends-on 0007, which does not exist",
+    "check_name": "dangling-relation",
+    "fingerprint": "8fab3309a839aa57c8a647d39e9b5a05655de7fe56a60132a302721cddd58705",
+    "severity": "major",
+    "location": {
+      "path": "docs/adr/0003-x.md",
+      "lines": {
+        "begin": 1
+      }
+    }
+  }
+]

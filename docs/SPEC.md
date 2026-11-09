@@ -326,7 +326,7 @@ Global flags: `--json` (machine output), `--dir PATH` (overrides §5),
 | `adr review REF [--until DATE]` | Record a review: set `reviewed` to today and, with `--until`, `review-by` to DATE (`bad-date` if not ISO). Any status. Prints the ADR by number and title with its review date; `--json` prints the ADR object. |
 | `adr drift [REF]...` | Churn per ADR in force that has a `scope` (§8), or only for the given REFs: one line per ADR, highest churn first: number, title, commits and distinct files since the baseline, and the date and subject of the last commit. A closing line counts the ADRs in force without a `scope` (omitted when there are none). `--json` is a list of `{"number", "id", "title", "baseline", "review-by", "revisit-if", "commits", "files": [...], "last": {"commit", "date", "subject"} \| null}`. Fails with `no-git` outside a repository. |
 | `adr graph [REF] [--relation R]... [--depth N] [--reverse] [--rank] [--format text\|mermaid\|dot\|json]` | Render the graph: the whole set, or the subgraph reachable from REF (`--reverse` follows inverse edges, by default only `depends-on` and `amends`, giving the impact set). `text` (default) is an indented, deduplicated tree; `mermaid` renders in GitHub/GitLab Markdown; `dot` feeds Graphviz; `json` is `{"nodes": [{"number", "id", "slug", "title", "status", "date", "tags", "path"}], "edges": [{"from", "to", "relation"}]}`. Node styling encodes status in mermaid and dot. `--rank` orders the nodes by rank: text output becomes a flat list, one `rank  NNNN title [status]` line per node, and JSON nodes gain a `rank` value; `--rank` with `mermaid` or `dot` is a usage error unless `--json` is given. |
-| `adr check [--strict] [--diff REF]` | Validate the set (§11). Exit 1 if any error (or any warning with `--strict`); notes never fail. `--diff REF` also reports every changed file (`git diff --name-only REF`, plus untracked files) governed by an ADR in force, as `scoped-change` findings naming the ADRs to review (a file whose commits all cite an ADR governing it or are exempt, and that has no uncommitted change, is not reported), and judges every non-merge commit in `REF..HEAD` that touches such a file by its trailers (§13): `uncited-change` or `exempt-change`. CI gate: `adr check --diff origin/main --strict`. |
+| `adr check [--strict] [--diff REF] [--format text\|github\|gitlab]` | Validate the set (§11). Exit 1 if any error (or any warning with `--strict`); notes never fail. `--diff REF` also reports every changed file (`git diff --name-only REF`, plus untracked files) governed by an ADR in force, as `scoped-change` findings naming the ADRs to review (a file whose commits all cite an ADR governing it or are exempt, and that has no uncommitted change, is not reported), and judges every non-merge commit in `REF..HEAD` that touches such a file by its trailers (§13): `uncited-change` or `exempt-change`. CI gate: `adr check --diff origin/main --strict`. `--format` prints CI annotations (see CI annotations). |
 | `adr trace REF` | Commits whose `ADR:` trailer (§13) names REF, newest first: date, short hash, subject. Only non-merge commits reachable from HEAD (with `--at REV`, from REV). No citing commit prints nothing and exits 0. `--json` is a list of `{"commit", "date", "subject", "adrs": [numbers]}`. Fails with `no-git` outside a repository. |
 | `adr for PATH... [--all]` | List the ADRs in force that govern each path (§8). `--all` includes `proposed`. |
 | `adr renumber REF --to N` | Rename the file, rewrite every relation that points at the old number, and rewrite Markdown links of the form `NNNN-slug.md` in all ADR bodies. Refuses if N is taken. If the old number is duplicated, numeric relations are left alone (they keep pointing at the remaining file) and only filename links are rewritten. |
@@ -407,6 +407,24 @@ Human output (without `--json`) uses ANSI colour for statuses, `check`
 severities (including `note`) and its `ok`, and `drift` ids when stdout is a terminal, `NO_COLOR` is unset and
 `TERM` is not `dumb`. Piped output, `--json`, `prime` and `index` never contain
 escape codes.
+
+### CI annotations
+
+`adr check --format github|gitlab` prints the findings for a CI system
+instead of the human text; the exit code is unchanged, `-q` does not silence
+it, and combining it with `--json` is a usage error.
+
+- `github`: one GitHub Actions workflow command per finding,
+  `::LEVEL file=PATH,line=1,title=CODE::MESSAGE`, where LEVEL is `error`,
+  `warning` or `notice` (for a note). Set-wide findings omit `file` and
+  `line`. Values use the workflow-command escaping. A clean run prints nothing.
+- `gitlab`: a GitLab Code Quality report, a JSON array (`[]` when clean) of
+  `{"description", "check_name", "fingerprint", "severity", "location":
+  {"path", "lines": {"begin": 1}}}`. `check_name` is the code; severity is
+  `major` for errors, `minor` for warnings and `info` for notes; the
+  fingerprint hashes code, path and the finding's index among those with the
+  same code and path, so it survives message changes such as a new commit
+  hash; set-wide findings use the ADR directory as path.
 
 ### Exit codes
 

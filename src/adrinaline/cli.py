@@ -24,7 +24,15 @@ from adrinaline.graph import (
     render_text,
 )
 from adrinaline.model import LINKABLE, Adr, AdrError, Status
-from adrinaline.output import EXIT_FINDINGS, EXIT_OK, Out, adr_dict, error
+from adrinaline.output import (
+    EXIT_FINDINGS,
+    EXIT_OK,
+    Out,
+    adr_dict,
+    error,
+    github_annotation,
+    gitlab_report,
+)
 
 AGENT_HINT = "Agents: run `adr prime` first. Every command accepts --json."
 PRIME_LINE = "Run `adr prime` at the start of every session and follow the ADRs it lists."
@@ -463,12 +471,18 @@ def cmd_check(ctx: Ctx) -> int:
         asdict(f) | {"path": ctx.out.rel(Path(f.path)) if Path(f.path).is_absolute() else f.path}
         for f in findings
     ]
-    text = "\n".join(
-        f"{ctx.out.paint(r['severity'], SEVERITY_STYLE[r['severity']])}: "
-        f"{r['code']}: {r['message']}"
-        for r in rows
-    ) or ctx.out.paint("ok", "green")
-    ctx.out.result({"ok": not failed, "findings": rows}, text)
+    # CI reports are the payload, so -q does not silence them.
+    if ctx.args.format == "github":
+        sys.stdout.write("".join(github_annotation(r) + "\n" for r in rows))
+    elif ctx.args.format == "gitlab":
+        sys.stdout.write(gitlab_report(rows, ctx.out.rel(ctx.loc.dir)) + "\n")
+    else:
+        text = "\n".join(
+            f"{ctx.out.paint(r['severity'], SEVERITY_STYLE[r['severity']])}: "
+            f"{r['code']}: {r['message']}"
+            for r in rows
+        ) or ctx.out.paint("ok", "green")
+        ctx.out.result({"ok": not failed, "findings": rows}, text)
     return EXIT_FINDINGS if failed else EXIT_OK
 
 
@@ -685,6 +699,12 @@ def build_parser() -> argparse.ArgumentParser:
     p = add("check", cmd_check, "validate all ADRs", reads_=True)
     p.add_argument("--strict", action="store_true", help="fail on warnings too")
     p.add_argument("--diff", metavar="REF", help="also report changed files governed by ADRs")
+    p.add_argument(
+        "--format",
+        choices=("text", "github", "gitlab"),
+        default="text",
+        help="text, GitHub Actions annotations or a GitLab Code Quality report",
+    )
 
     p = add("supersede", cmd_supersede, "mark OLD as superseded by NEW")
     p.add_argument("old", metavar="OLD")
@@ -751,6 +771,8 @@ def main(
         parser.error(f"--at is only valid for read commands ({', '.join(args.read_commands)})")
     if args.func is cmd_graph and args.rank and not args.json and args.format in ("mermaid", "dot"):
         parser.error("--rank supports only text and json output")
+    if args.func is cmd_check and args.json and args.format != "text":
+        parser.error("--format and --json are mutually exclusive")
     if args.func is cmd_new and args.title is None and not _prompting(args):
         parser.error("the following arguments are required: title")
     cwd = (cwd or Path.cwd()).resolve()

@@ -1,0 +1,2 @@
+::warning title=number-gap::0002 is missing
+::error file=docs/adr/0003-x.md,line=1,title=dangling-relation::0003 depends-on 0007, which does not exist

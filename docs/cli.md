@@ -38,7 +38,7 @@ Human output is coloured on a terminal; it is plain when stdout is not a TTY, wh
 | `trace REF` | | list the commits whose `ADR:` trailer cites the ADR, newest first |
 | `for PATH…` | `--all` includes proposed ADRs | list the ADRs in force that govern each path |
 | `drift [REF…]` | | churn per ADR in force with a `scope`: commits and files since its baseline (the later of `date` and `reviewed`), last commit; `--json` for details |
-| `check` | `--strict` fails on warnings (never on notes), `--diff REF` reports changed files governed by ADRs and commits that cite none of them | validate all ADRs |
+| `check` | `--strict` fails on warnings (never on notes), `--diff REF` reports changed files governed by ADRs and commits that cite none of them, `--format github\|gitlab` prints CI annotations instead of text | validate all ADRs |
 | `prime` | `--budget N` limits decisions in force to about N words | print the agent briefing |
 | `skill` | `--install DIR` writes the skill and references into DIR | print the bundled agent skill |
 

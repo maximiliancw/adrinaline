@@ -1,5 +1,6 @@
 """Human and JSON output, the error envelope and exit codes."""
 
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -27,6 +28,48 @@ STATUS_STYLE = {Status.ACCEPTED: "green", Status.PROPOSED: "yellow"}  # the rest
 
 def dumps(data: Any) -> str:
     return json.dumps(data, ensure_ascii=False, indent=2, default=str)
+
+
+_GITHUB_LEVEL = {"error": "error", "warning": "warning", "note": "notice"}
+_GITLAB_SEVERITY = {"error": "major", "warning": "minor", "note": "info"}
+
+
+def _gh_data(text: str) -> str:
+    return text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+
+def _gh_prop(text: str) -> str:
+    return _gh_data(text).replace(":", "%3A").replace(",", "%2C")
+
+
+def github_annotation(row: dict[str, str]) -> str:
+    """One GitHub Actions workflow command for a `check` finding."""
+    props = [f"file={_gh_prop(row['path'])}", "line=1"] if row["path"] else []
+    props.append(f"title={_gh_prop(row['code'])}")
+    return f"::{_GITHUB_LEVEL[row['severity']]} {','.join(props)}::{_gh_data(row['message'])}"
+
+
+def gitlab_report(rows: list[dict[str, str]], fallback: str) -> str:
+    """A GitLab Code Quality report for `check` findings; set-wide ones point at `fallback`.
+
+    Fingerprints hash code, path and occurrence index, not the message, which carries
+    volatile text such as commit hashes and churn counts.
+    """
+    seen: dict[tuple[str, str], int] = {}
+    issues = []
+    for r in rows:
+        key = (r["code"], r["path"])
+        seen[key] = n = seen.get(key, -1) + 1
+        issues.append(
+            {
+                "description": r["message"],
+                "check_name": r["code"],
+                "fingerprint": hashlib.sha256(f"{key[0]}\0{key[1]}\0{n}".encode()).hexdigest(),
+                "severity": _GITLAB_SEVERITY[r["severity"]],
+                "location": {"path": r["path"] or fallback, "lines": {"begin": 1}},
+            }
+        )
+    return dumps(issues)
 
 
 class Out:
