@@ -388,6 +388,11 @@ def test_show_prints_review_line(initialized):
     w.write_adr(2, "x", review_by="2099-01-01", revisit_if="load doubles")
     out = w.adr("show", "2").out
     assert "review-by: 2099-01-01" in out and "revisit-if: load doubles" in out
+def test_new_without_title_off_a_terminal_is_a_usage_error(initialized):
+    result = initialized.adr("new")
+    assert result.code == 2 and "title" in result.err
+
+
 def test_title_form_reference_and_suggestion(initialized):  # AC30
     initialized.adr("new", "Use PostgreSQL")
     initialized.adr("new", "Use PostgreSQL 17")
