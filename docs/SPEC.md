@@ -29,6 +29,8 @@ agents both read reliably.
 - G9: Decision health is measurable: review dates and churn over an ADR's
   `scope` show which decisions are overdue or stale (`adr drift`,
   `adr review`, `check` warnings), deterministically and from git alone.
+- G10: Commits cite the decisions they follow: `ADR:` and `ADR-Exempt:`
+  trailers (§13) feed `adr trace` and the `uncited-change` check.
 
 ### Non-goals (v1)
 
@@ -324,7 +326,8 @@ Global flags: `--json` (machine output), `--dir PATH` (overrides §5),
 | `adr review REF [--until DATE]` | Record a review: set `reviewed` to today and, with `--until`, `review-by` to DATE (`bad-date` if not ISO). Any status. Prints the ADR by number and title with its review date; `--json` prints the ADR object. |
 | `adr drift [REF]...` | Churn per ADR in force that has a `scope` (§8), or only for the given REFs: one line per ADR, highest churn first: number, title, commits and distinct files since the baseline, and the date and subject of the last commit. A closing line counts the ADRs in force without a `scope` (omitted when there are none). `--json` is a list of `{"number", "id", "title", "baseline", "review-by", "revisit-if", "commits", "files": [...], "last": {"commit", "date", "subject"} \| null}`. Fails with `no-git` outside a repository. |
 | `adr graph [REF] [--relation R]... [--depth N] [--reverse] [--rank] [--format text\|mermaid\|dot\|json]` | Render the graph: the whole set, or the subgraph reachable from REF (`--reverse` follows inverse edges, by default only `depends-on` and `amends`, giving the impact set). `text` (default) is an indented, deduplicated tree; `mermaid` renders in GitHub/GitLab Markdown; `dot` feeds Graphviz; `json` is `{"nodes": [{"number", "id", "slug", "title", "status", "date", "tags", "path"}], "edges": [{"from", "to", "relation"}]}`. Node styling encodes status in mermaid and dot. `--rank` orders the nodes by rank: text output becomes a flat list, one `rank  NNNN title [status]` line per node, and JSON nodes gain a `rank` value; `--rank` with `mermaid` or `dot` is a usage error unless `--json` is given. |
-| `adr check [--strict] [--diff REF]` | Validate the set (§11). Exit 1 if any error (or any warning with `--strict`). `--diff REF` also reports every changed file (`git diff --name-only REF`, plus untracked files) governed by an ADR in force, as `scoped-change` findings naming the ADRs to review. CI gate: `adr check --diff origin/main --strict`. |
+| `adr check [--strict] [--diff REF]` | Validate the set (§11). Exit 1 if any error (or any warning with `--strict`); notes never fail. `--diff REF` also reports every changed file (`git diff --name-only REF`, plus untracked files) governed by an ADR in force, as `scoped-change` findings naming the ADRs to review (a file whose commits all cite an ADR governing it or are exempt, and that has no uncommitted change, is not reported), and judges every non-merge commit in `REF..HEAD` that touches such a file by its trailers (§13): `uncited-change` or `exempt-change`. CI gate: `adr check --diff origin/main --strict`. |
+| `adr trace REF` | Commits whose `ADR:` trailer (§13) names REF, newest first: date, short hash, subject. Only non-merge commits reachable from HEAD (with `--at REV`, from REV). No citing commit prints nothing and exits 0. `--json` is a list of `{"commit", "date", "subject", "adrs": [numbers]}`. Fails with `no-git` outside a repository. |
 | `adr for PATH... [--all]` | List the ADRs in force that govern each path (§8). `--all` includes `proposed`. |
 | `adr renumber REF --to N` | Rename the file, rewrite every relation that points at the old number, and rewrite Markdown links of the form `NNNN-slug.md` in all ADR bodies. Refuses if N is taken. If the old number is duplicated, numeric relations are left alone (they keep pointing at the remaining file) and only filename links are rewritten. |
 | `adr log REF` | `git log --follow` for the ADR file (date, author, subject). With `--at REV`, the ADR is looked up at REV and only commits reachable from REV are listed. |
@@ -351,8 +354,10 @@ paths as one JSON document.
 
 ## 11. Validation (`adr check`)
 
-Each finding has a stable `code`, a `severity`, a `path` (repository-relative,
-empty for set-wide findings) and a `message`.
+Each finding has a stable `code`, a `severity` (`error`, `warning` or
+`note`), a `path` (repository-relative, empty for set-wide findings) and a
+`message`. Notes inform only: they never affect the exit code, not even with
+`--strict`.
 
 | Code | Severity | Condition |
 |---|---|---|
@@ -374,7 +379,9 @@ empty for set-wide findings) and a `message`.
 | `bad-scope` | error | `scope` is not a list of relative glob strings |
 | `unknown-relation-key` | warning | Frontmatter uses a snake_case key (`superseded_by`, `depends_on`, `relates_to`, `amended_by`, `dependency_of`, `review_by`, `revisit_if`); the hyphenated key is meant |
 | `scope-matches-nothing` | warning | A `scope` glob matches no tracked or untracked, non-ignored file (`git ls-files --cached --others --exclude-standard`; with `--at`, the files at that revision) |
-| `scoped-change` | warning | With `--diff` only: a changed file is governed by an ADR in force |
+| `scoped-change` | warning | With `--diff` only: a changed file is governed by an ADR in force, unless it has no uncommitted change, at least one commit in `REF..HEAD` touched it, and every such commit cites an ADR governing that file or carries `ADR-Exempt:` (§13) |
+| `uncited-change` | warning | With `--diff` only: a commit in `REF..HEAD` touches a file governed by an ADR in force, its `ADR:` trailers name none of the ADRs governing the files it touched, and it has no `ADR-Exempt:` trailer. Path is the first governed file; the message names the short hash, subject, governing ADRs and the trailer to add |
+| `exempt-change` | note | With `--diff` only: such a commit cites none of its governing ADRs but carries `ADR-Exempt:`; the message names the short hash, subject and reason |
 | `review-overdue` | warning | An ADR in force has a `review-by` before today; the message names the date and `adr review N` |
 | `stale-decision` | warning | Only when `drift-commits` (§5) is above 0 and there is a git repository: an ADR in force has churn (§8) of at least `drift-commits` commits; the message names the count, the baseline and `adr review N` |
 
@@ -397,7 +404,7 @@ empty for set-wide findings) and a `message`.
 ### Human output
 
 Human output (without `--json`) uses ANSI colour for statuses, `check`
-severities and its `ok`, and `drift` ids when stdout is a terminal, `NO_COLOR` is unset and
+severities (including `note`) and its `ok`, and `drift` ids when stdout is a terminal, `NO_COLOR` is unset and
 `TERM` is not `dumb`. Piped output, `--json`, `prime` and `index` never contain
 escape codes.
 
@@ -423,7 +430,9 @@ Prints a compact briefing in Markdown (JSON with `--json`):
 4. Open `proposed` ADRs.
 5. A command cheat sheet and the rules: when to write an ADR, never edit an
    accepted ADR's decision (supersede or amend instead), run `adr review N`
-   after revisiting a decision, run `adr check` before finishing.
+   after revisiting a decision, cite the ADRs a commit follows with an
+   `ADR: N` trailer (or `ADR-Exempt: reason`), run `adr check` before
+   finishing.
 
 With `--budget N`, sections 1, 3, 4 and 5 are always printed in full; section 2
 is limited to about N words and filled with ADRs in force in descending
@@ -447,7 +456,8 @@ session start") or a session-start hook.
 `data/SKILL.md` follows the Agent Skills format (name, description,
 instructions). It tells agents when a decision deserves an ADR, how to write
 one with `adr new --body-file -`, how to supersede or amend, and how to record
-a review with `adr review`. `adr skill` prints it.
+a review with `adr review`, and how to cite ADRs in commit trailers.
+`adr skill` prints it.
 
 ## 13. Git integration (read-only)
 
@@ -458,8 +468,19 @@ cross-branch allocation, `adr log` fails with `no-git`).
 Used for: repository root (`git rev-parse --show-toplevel`), default
 `decision-makers` entry on `init` (`git config user.name`, omitted if unset),
 cross-branch numbers (§10), `adr log`, drift (§8: `adr drift`,
-`stale-decision`, `adr prime`). Never: `add`, `commit`, `fetch`, `checkout`,
+`stale-decision`, `adr prime`), commit trailers (`adr trace`,
+`uncited-change`). Never: `add`, `commit`, `fetch`, `checkout`,
 or any other command that writes.
+
+### Commit trailers
+
+A commit cites ADRs with one or more `ADR:` trailers, each holding ADR
+numbers separated by commas or spaces (`ADR: 7`, `ADR: 0007, 0012`); tokens
+that are not numbers are ignored. `ADR-Exempt: reason` declares a governed
+change that follows no ADR. Trailers are read with git's own parser
+(`git log --format=%(trailers:key=ADR,valueonly)`), so they must sit in the
+final paragraph of the message as git defines it. A number that names no ADR
+cites nothing.
 
 ## 14. `adr init` content
 
@@ -577,3 +598,15 @@ Each criterion is an automated test.
     `0002-use-postgresql.md` even when `0003-use-postgresql-17.md` exists;
     `adr show use-postgrs` fails with `not-found` naming `0002-use-postgresql`
     as a candidate.
+31. On a fixture with commits citing `ADR: 2`, `ADR: 0002, 0003`, `ADR: 3`
+    and none, `adr trace 2 --json` lists exactly the first two, newest
+    first; `adr trace 2 --at HEAD~3` lists only the first.
+32. With 0002 in force and `scope: ["src/db/**"]`, a commit after REF that
+    touches `src/db/x.py` makes `adr check --diff REF` report
+    `uncited-change` without a trailer and with `ADR: 3` (an ADR not
+    governing it), and with `ADR: 2` neither `uncited-change` nor
+    `scoped-change`, so `adr check --diff REF --strict` exits 0; an
+    uncommitted edit to `src/db/x.py` brings `scoped-change` back.
+33. The same commit with `ADR-Exempt: generated code` is reported as
+    `exempt-change` with severity `note`, and `adr check --diff REF --strict`
+    exits 0.
