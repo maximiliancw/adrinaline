@@ -377,7 +377,7 @@ Each finding has a stable `code`, a `severity` (`error`, `warning` or
 | `number-gap` | warning | A number between 1 and the maximum is missing and not present on any local branch or remote-tracking ref (§10; refs are not consulted with `--at`) |
 | `no-template` | warning | `.template.md` missing |
 | `bad-scope` | error | `scope` is not a list of relative glob strings |
-| `unknown-relation-key` | warning | Frontmatter uses a snake_case key (`superseded_by`, `depends_on`, `relates_to`, `amended_by`, `dependency_of`, `review_by`, `revisit_if`); the hyphenated key is meant |
+| `unknown-relation-key` | warning | Frontmatter uses a snake_case key (`superseded_by`, `depends_on`, `relates_to`, `review_by`, `revisit_if`); the hyphenated key is meant |
 | `scope-matches-nothing` | warning | A `scope` glob matches no tracked or untracked, non-ignored file (`git ls-files --cached --others --exclude-standard`; with `--at`, the files at that revision) |
 | `scoped-change` | warning | With `--diff` only: a changed file is governed by an ADR in force, unless it has no uncommitted change, at least one commit in `REF..HEAD` touched it, and every such commit cites an ADR governing that file or carries `ADR-Exempt:` (§13) |
 | `uncited-change` | warning | With `--diff` only: a commit in `REF..HEAD` touches a file governed by an ADR in force, its `ADR:` trailers name none of the ADRs governing the files it touched, and it has no `ADR-Exempt:` trailer. Path is the first governed file; the message names the short hash, subject, governing ADRs and the trailer to add |

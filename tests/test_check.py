@@ -360,3 +360,10 @@ def test_fix_status_keeps_the_date(initialized):
     text = initialized.path_of(2).read_text()
     assert re.search(r'^status: "?superseded"?$', text, re.M)
     assert re.search(r'^date: "?2026-01-15"?$', text, re.M)
+
+
+def test_inverse_snake_keys_are_not_flagged():  # ADR 0003: inverses are derived, never stored
+    front = "status: accepted\ndate: 2026-01-15\namended_by: [1]\ndependency_of: [1]\n"
+    text = f"---\n{front}---\n# A\n"
+    s = parse_all([(Path("d/0001-a.md"), text)])
+    assert run_checks(s, template_exists=True) == []
