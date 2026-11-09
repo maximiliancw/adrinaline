@@ -20,6 +20,26 @@ def test_new_skips_numbers_taken_on_other_branches(initialized):  # AC5
     assert "skipped 0003, taken on other" in result.err
 
 
+def test_new_does_not_report_current_branch_deleted_files(initialized):  # AC for adr-fl77
+    """Deleted ADR on current branch is not reported as 'taken on <branch>'."""
+    initialized.adr("new", "First")
+    initialized.commit_all()
+    initialized.adr("new", "Second")
+    initialized.commit_all()
+    # Delete the most recent ADR from working tree (but it's still in git history)
+    # Find the highest numbered ADR
+    files = sorted(initialized.adr_dir.glob("000*-*.md"))
+    second_file = files[-1]  # Get the highest numbered one
+    second_file.unlink()
+    # Creating a new ADR should reuse the deleted number, not skip it
+    result = initialized.adr("new", "Third", "--json")
+    deleted_num = int(second_file.stem.split("-")[0])
+    assert result.code == 0, result.err
+    assert result.json()["number"] == deleted_num
+    # The deleted number should NOT be in skipped because it's on the current branch
+    assert f"{deleted_num:04d}" not in result.json()["skipped"]
+
+
 def test_new_works_before_first_commit(initialized):
     assert initialized.adr("new", "Early").code == 0
     assert initialized.adr("log", "2", "--json").json() == []

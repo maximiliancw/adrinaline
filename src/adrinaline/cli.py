@@ -210,6 +210,13 @@ def non_negative(value: str) -> int:
     return n
 
 
+def positive_int(value: str) -> int:
+    n = int(value)
+    if n < 1:
+        raise argparse.ArgumentTypeError("must be >= 1")
+    return n
+
+
 def nonblank(value: str) -> str:
     if not value.strip():
         raise argparse.ArgumentTypeError("must not be blank")
@@ -730,7 +737,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = add("renumber", cmd_renumber, "give an ADR a new number and update references")
     p.add_argument("ref")
-    p.add_argument("--to", type=int, required=True, metavar="N")
+    p.add_argument("--to", type=positive_int, required=True, metavar="N")
 
     p = add("log", cmd_log, "show the git history of an ADR", reads_=True)
     p.add_argument("ref")

@@ -130,6 +130,17 @@ def test_renumber_refuses_taken_number(initialized):
     assert (initialized.adr_dir / "0002-two.md").is_file()
 
 
+def test_renumber_refuses_zero_or_negative(initialized):
+    initialized.write_adr(2, "two")
+    result_zero = initialized.adr("renumber", "2", "--to", "0")
+    assert result_zero.code == 2
+    assert "must be >= 1" in result_zero.err
+    result_neg = initialized.adr("renumber", "2", "--to", "-1")
+    assert result_neg.code == 2
+    assert "must be >= 1" in result_neg.err
+    assert (initialized.adr_dir / "0002-two.md").is_file()
+
+
 def test_new_dedupes_repeated_target(initialized):
     initialized.adr("new", "Use MySQL", "--accepted")
     result = initialized.adr("new", "Five", "--supersedes", "2", "--supersedes", "0002")

@@ -79,7 +79,7 @@ def locate(cwd: Path, env: Mapping[str, str], explicit: Path | None = None) -> L
     base = cwd
     for directory in _ancestors(cwd, root):
         found = _config_table(directory)
-        if found:
+        if found is not None:
             table, base = found, directory
             break
     adr_dir_file = next(
@@ -310,15 +310,24 @@ def _taken(directory: Path, number: int) -> bool:
 
 def create_file(directory: Path, number: int, slug: str, text: str) -> Path:
     while True:
-        if not _taken(directory, number):
-            path = directory / f"{number:04d}-{slug}.md"
-            try:
-                with path.open("x", encoding="utf-8", newline="") as handle:
-                    handle.write(text)
-                return path
-            except FileExistsError:
-                pass
-        number += 1
+        if _taken(directory, number):
+            number += 1
+            continue
+        path = directory / f"{number:04d}-{slug}.md"
+        try:
+            # Reserve the number with O_EXCL first
+            tmp = directory / f".{number:04d}.tmp"
+            tmp.touch(exist_ok=False)
+        except FileExistsError:
+            # Race: another process took this number
+            number += 1
+            continue
+        try:
+            # Now write atomically to the final path
+            atomic_write(path, text)
+            return path
+        finally:
+            tmp.unlink(missing_ok=True)
 
 
 def check_acyclic(graph: AdrGraph, relation: str, src: int, dst: int) -> None:
@@ -375,8 +384,8 @@ def unlink(src: Adr, relation: str, dst: Adr) -> list[Adr]:
 
 
 def renumber(s: AdrSet, adr: Adr, to: int) -> tuple[Path, list[Adr]]:
-    if to in s.numbers or to < 1:
-        raise AdrError("exists", f"{to:04d} is already taken or invalid", number=to)
+    if to in s.numbers:
+        raise AdrError("exists", f"{to:04d} is already taken", number=to)
     old_name = adr.path.name
     new_path = adr.path.with_name(f"{to:04d}-{adr.slug}.md")
     unique = sum(1 for a in s.adrs if a.number == adr.number) == 1
