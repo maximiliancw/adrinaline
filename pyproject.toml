@@ -8,7 +8,9 @@ readme = "README.md"
 requires-python = ">=3.14"
 authors = [{ name = "Max Wolf" }]
 classifiers = [
+    "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.14",
+    "Intended Audience :: Developers",
     "Environment :: Console",
     "Topic :: Software Development :: Documentation",
 ]
@@ -20,6 +22,8 @@ dependencies = [
 [project.urls]
 Repository = "https://github.com/maximiliancw/adrinaline"
 Issues = "https://github.com/maximiliancw/adrinaline/issues"
+Documentation = "https://maximiliancw.github.io/adrinaline"
+Changelog = "https://github.com/maximiliancw/adrinaline/releases"
 
 [project.scripts]
 adr = "adrinaline.cli:run"
