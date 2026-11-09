@@ -12,7 +12,7 @@ EXIT_OK = 0
 EXIT_FINDINGS = 1
 EXIT_DOMAIN = 3
 
-# Keep in sync with model.Frontmatter: the fields adr_dict leaves out of `meta` (hyphenated).
+# Keep in sync with model.Frontmatter: the keys adr_dict renders as fields, so not under `meta`.
 _KNOWN_KEYS = {
     "status",
     "date",
