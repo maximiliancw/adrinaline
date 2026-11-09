@@ -17,6 +17,7 @@ RULES = """\
 - Never rewrite an accepted decision: `adr new "…" --supersedes N` replaces it, `adr new "…" --amends N` changes part of it.
 - Look things up: `adr show N`, `adr list --status accepted`, `adr graph N`, `adr graph N --reverse`.
 - After revisiting a decision, record it: `adr review N --until YYYY-MM-DD`. Never record a review you did not do.
+- Cite the ADRs a commit follows with a trailer, `ADR: N` (several: `ADR: 3, 7`); for a change to governed files that follows none, add `ADR-Exempt: reason`. `adr trace N` lists the citing commits.
 - Run `adr check` before you finish. Every command accepts `--json`."""
 
 

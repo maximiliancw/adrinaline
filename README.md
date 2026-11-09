@@ -21,6 +21,7 @@ An Architecture Decision Record (ADR) is a short file that records one significa
 - Read-only git integration: it never stages, commits or fetches.
 - The ADR set is a graph (text, Mermaid, DOT, JSON), tied to code via `scope` globs and queryable at any git revision.
 - Decision health: `review-by` dates and churn over an ADR's `scope` (`adr drift`), reported by `adr check` and `adr prime`.
+- Commit traceability: `ADR:` trailers tie commits to decisions (`adr trace`), and `adr check --diff` flags governed changes that cite none.
 - Every command has `--json`; `adr prime` briefs an agent at session start.
 
 | | adrinaline | [adr-tools](https://github.com/npryce/adr-tools) | [log4brains](https://github.com/thomvaill/log4brains) | [MADR](https://adr.github.io/madr/) |
@@ -184,6 +185,7 @@ Every read command accepts `--at REF`:
 ```bash
 adr list --at v1.2 --status accepted       # what was in force at release 1.2?
 adr log 7                                  # git history of ADR 0007
+adr trace 7                                # commits whose ADR: trailer cites 0007
 ```
 
 Git access is read-only, and `adr log` only sees committed changes, so commit first.
