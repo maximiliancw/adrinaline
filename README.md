@@ -17,7 +17,7 @@ An Architecture Decision Record (ADR) is a short file that records one significa
 - One command bootstraps the practice: `adr init`.
 - Plain Markdown with YAML frontmatter; hand edits stay first-class.
 - Sequential numbering, with collisions between branches detected early.
-- `adr check` validates the set in CI or pre-commit, with GitHub annotations or a GitLab Code Quality report.
+- `adr check` validates the set in CI or pre-commit, with GitHub annotations or a GitLab Code Quality report; `adr check --fix` repairs the mechanical findings.
 - Read-only git integration: it never stages, commits or fetches.
 - The ADR set is a graph (text, Mermaid, DOT, JSON), tied to code via `scope` globs and queryable at any git revision.
 - Decision health: `review-by` dates and churn over an ADR's `scope` (`adr drift`), reported by `adr check` and `adr prime`.
@@ -214,7 +214,7 @@ Git access is read-only, and `adr log` only sees committed changes, so commit fi
 
 ## For coding agents
 
-`adr init --agents` (or `adr init` on a terminal, which asks) adds the `adr prime` line below to `AGENTS.md` and installs the skill, which teaches agents when and how to write ADRs, where the agents it detects read it: `.claude/skills/adr` when the repo has `CLAUDE.md` or `.claude/` (or you have `~/.claude/CLAUDE.md`), `.agents/skills/adr` when it has `AGENTS.md`, `.agents/`, `.cursor/` or `.github/` (or nothing). To install by hand:
+`adr init --agents` (or `adr init` on a terminal, which asks) adds the `adr prime` line below to `AGENTS.md` (or `CLAUDE.md` when only that exists) and installs the skill, which teaches agents when and how to write ADRs, where the agents it detects read it: `.claude/skills/adr` when the repo has `CLAUDE.md` or `.claude/` (or you have `~/.claude/CLAUDE.md`), `.agents/skills/adr` when it has `AGENTS.md`, `.agents/`, `.cursor/` or `.github/` (or nothing). To install by hand:
 
 | Agent | Install |
 |---|---|
@@ -246,7 +246,7 @@ Or add one line to `AGENTS.md` (or your agent's equivalent):
 Run `adr prime` at the start of every session and follow the ADRs it lists.
 ```
 
-`adr prime --budget 400` limits the briefing to about 400 words, picking the most important and most relevant decisions first (the top-scored ADR is always shown). Agents create ADRs as `proposed`; humans accept them. Every command accepts `--json`.
+`adr prime --budget 400` limits the decisions-in-force list to about 400 words, picking the most important and most relevant decisions first (the top-scored ADR is always shown). Agents create ADRs as `proposed`; humans accept them. Every command accepts `--json`.
 
 ## Commands
 
@@ -267,12 +267,12 @@ Run `adr prime` at the start of every session and follow the ADRs it lists.
 | `trace` | list the commits that cite an ADR |
 | `for` | list the ADRs in force that govern each path |
 | `drift` | show churn over each ADR's scope since its baseline |
-| `check` | validate all ADRs (text, GitHub annotations or GitLab Code Quality) |
+| `check` | validate all ADRs (text, GitHub annotations or GitLab Code Quality); `--fix` repairs mechanical findings |
 | `prime` | print the agent briefing |
 | `skill` | print or install the bundled agent skill |
 
-Full documentation: <https://maximiliancw.github.io/adrinaline/>. Changelog: [GitHub Releases](https://github.com/maximiliancw/adrinaline/releases). This repo's own decisions are in [docs/adr/](docs/adr/).
+Full documentation: <https://maximiliancw.github.io/adrinaline/>. Changelog: [GitHub Releases](https://github.com/maximiliancw/adrinaline/releases). This repo's own decisions are in [docs/adr/](https://github.com/maximiliancw/adrinaline/tree/main/docs/adr).
 
 ## License
 
-[MIT](LICENSE)
+[MIT](https://github.com/maximiliancw/adrinaline/blob/main/LICENSE)
