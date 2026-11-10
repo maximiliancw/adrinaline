@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-10
 scope: [docs/adr/**, pyproject.toml, src/adrinaline/cli.py, src/adrinaline/output.py, src/adrinaline/prime.py, src/adrinaline/frontmatter.py, src/adrinaline/model.py, src/adrinaline/git.py, src/adrinaline/data/skills/**, tests/test_guards.py, .github/workflows/release.yml]
 amends: [1, 2, 4, 5, 6]
