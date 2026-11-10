@@ -18,3 +18,15 @@ gh attestation verify dist/* --repo maximiliancw/adrinaline
 ```
 
 Each GitHub Release also includes a CycloneDX SBOM (`sbom.cdx.json`) of the runtime dependencies and `provenance.sigstore.json`, the Sigstore bundle of the attestation; add `--bundle provenance.sigstore.json` to the command above to verify against the downloaded bundle instead of fetching the attestation from GitHub.
+
+## Repository protection
+
+The `main` branch is covered by an active repository ruleset with no bypass actors:
+
+- Changes land only through a pull request, merged by rebase.
+- The status checks `test (ubuntu-latest)`, `test (macos-latest)`, `lint` and `docs` must pass, and the branch must be up to date with `main` before merging.
+- History stays linear.
+- Deleting the branch and force-pushing to it are blocked.
+- Each release needs the maintainer's approval in the `release` environment.
+
+Required human reviews are off (zero approvals) because the project has a single maintainer.
