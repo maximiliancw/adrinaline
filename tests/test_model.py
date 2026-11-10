@@ -110,3 +110,50 @@ def test_yaml_with_day_in_text_is_not_date_error():
             "---\nstatus: accepted\ndate: 2026-01-15\nbad_yaml: [unclosed day\n---\n# X\n",
         )
     assert exc.value.code == "no-frontmatter"
+
+
+ADR_TOOLS = (
+    "# 1. Record architecture decisions\n\nDate: 2016-02-12\n\n"
+    "## Status\n\nAccepted\n\n## Context\n"
+)
+
+
+def test_no_frontmatter_hints_status_and_date_from_an_adr_tools_file():
+    with pytest.raises(AdrError) as exc:
+        parse_adr(Path("0001-x.md"), ADR_TOOLS)
+    assert exc.value.code == "no-frontmatter"
+    assert "status: accepted" in exc.value.message
+    assert "date: 2016-02-12" in exc.value.message
+
+
+def test_no_frontmatter_hint_survives_crlf():
+    with pytest.raises(AdrError) as exc:
+        parse_adr(Path("0001-x.md"), ADR_TOOLS.replace("\n", "\r\n"))
+    assert "status: accepted" in exc.value.message and "date: 2016-02-12" in exc.value.message
+
+
+def test_no_frontmatter_hint_uses_placeholders_when_nothing_is_found():
+    with pytest.raises(AdrError) as exc:
+        parse_adr(Path("0001-x.md"), "# T\n")
+    assert "status: <status>" in exc.value.message and "date: <YYYY-MM-DD>" in exc.value.message
+
+
+def test_no_frontmatter_hint_does_not_suggest_an_unknown_status():
+    with pytest.raises(AdrError) as exc:
+        parse_adr(Path("0001-x.md"), "# T\n\n## Status\n\nSuperseded by [ADR 5]\n")
+    assert "status: <status>" in exc.value.message
+
+
+def test_broken_frontmatter_keeps_its_own_message():
+    with pytest.raises(AdrError) as exc:
+        parse_adr(Path("0001-x.md"), "---\nstatus: accepted\n# T\n")
+    assert "unterminated" in exc.value.message and "add frontmatter" not in exc.value.message
+
+
+def test_no_frontmatter_hint_skips_a_bom_prefixed_block_and_an_invalid_date():
+    with pytest.raises(AdrError) as exc:
+        parse_adr(Path("0001-x.md"), "﻿---\nstatus: accepted\ndate: 2026-01-01\n---\n# T\n")
+    assert "add frontmatter" not in exc.value.message
+    with pytest.raises(AdrError) as exc:
+        parse_adr(Path("0001-x.md"), "# T\n\nDate: 2016-13-45\n\n## Status\n\nProposed\n")
+    assert "date: <YYYY-MM-DD>" in exc.value.message

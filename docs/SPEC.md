@@ -34,8 +34,9 @@ agents both read reliably.
 
 ### Non-goals (v1)
 
-- Importing existing ADR sets (adr-tools, Nygard style). `adr check` reports
-  what does not conform; fixing an import is manual (`check --fix` only repairs mechanical findings, §11).
+- Importing existing ADR sets (adr-tools, Nygard style). `adr check` names, per file, the
+  frontmatter that is missing (status and date, read from the adr-tools header where present);
+  fixing an import is manual (`check --fix` only repairs mechanical findings, §11).
 - TOML frontmatter.
 - A plugin system, an MCP server, a web UI or a static-site generator.
 - An interactive graph viewer. Planned for v2 as `adr graph --format html`
@@ -367,7 +368,7 @@ Each finding has a stable `code`, a `severity` (`error`, `warning` or
 | Code | Severity | Condition |
 |---|---|---|
 | `bad-filename` | warning | File in the ADR dir does not match the naming rule |
-| `no-frontmatter` | error | Missing or unparsable YAML frontmatter |
+| `no-frontmatter` | error | Missing or unparsable YAML frontmatter; for a file with none, the message names the `status` and `date` to add, read from an adr-tools or Nygard header where present |
 | `missing-field` | error | `status` or `date` missing |
 | `bad-field` | error | A known key has the wrong type (for example a relation that is not a list of numbers) |
 | `bad-status` | error | Status not in the allowed set |
