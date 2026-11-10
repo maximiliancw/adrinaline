@@ -9,6 +9,7 @@
 [![PyPI](https://img.shields.io/pypi/v/adrinaline)](https://pypi.org/project/adrinaline/)
 [![Python](https://img.shields.io/pypi/pyversions/adrinaline)](https://pypi.org/project/adrinaline/)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/maximiliancw/adrinaline/badge)](https://scorecard.dev/viewer/?uri=github.com/maximiliancw/adrinaline)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16522/badge)](https://www.bestpractices.dev/projects/16522)
 
 ## Why
 
@@ -272,6 +273,8 @@ Run `adr prime` at the start of every session and follow the ADRs it lists.
 | `skill` | print or install the bundled agent skill |
 
 Full documentation: <https://maximiliancw.github.io/adrinaline/>. Changelog: [GitHub Releases](https://github.com/maximiliancw/adrinaline/releases). This repo's own decisions are in [docs/adr/](https://github.com/maximiliancw/adrinaline/tree/main/docs/adr).
+
+Questions, bug reports and feature requests go to [GitHub Issues](https://github.com/maximiliancw/adrinaline/issues); vulnerabilities go through the [security policy](https://github.com/maximiliancw/adrinaline/blob/main/SECURITY.md). To contribute code, see [CONTRIBUTING.md](https://github.com/maximiliancw/adrinaline/blob/main/CONTRIBUTING.md).
 
 ## License
 
