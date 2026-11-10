@@ -12,6 +12,10 @@ class FrontmatterError(ValueError):
     """The file has no valid YAML frontmatter mapping."""
 
 
+class FrontmatterMissing(FrontmatterError):
+    """The file does not start with a frontmatter block."""
+
+
 class FrontmatterDateError(FrontmatterError):
     """A date field in the frontmatter could not be parsed."""
 
@@ -28,7 +32,7 @@ def split(text: str) -> tuple[CommentedMap, str]:
     """Split a file into its frontmatter mapping and the body after the closing `---`."""
     lines = text.splitlines(keepends=True)
     if not lines or lines[0].rstrip("\r\n") != "---":
-        raise FrontmatterError("missing frontmatter (file must start with '---')")
+        raise FrontmatterMissing("missing frontmatter (file must start with '---')")
     for end, line in enumerate(lines[1:], start=1):
         if line.rstrip("\r\n") == "---":
             try:

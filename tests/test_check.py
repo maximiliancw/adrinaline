@@ -214,6 +214,22 @@ def test_check_json_shape(initialized):  # AC10
         assert all(isinstance(v, str) for v in finding.values())
 
 
+def test_check_names_the_frontmatter_missing_from_each_adr_tools_file(initialized):
+    dates = {
+        "docs/adr/0002-a.md": "2016-02-12",
+        "docs/adr/0003-b.md": "2017-03-04",
+        "docs/adr/0004-c.md": "2018-05-06",
+    }
+    for path, date in dates.items():
+        initialized.write(path, f"# T\n\nDate: {date}\n\n## Status\n\nAccepted\n")
+    findings = initialized.adr("check", "--json").json()["findings"]
+    assert [f["code"] for f in findings] == ["no-frontmatter"] * 3
+    by_path = {f["path"]: f["message"] for f in findings}
+    assert set(by_path) == set(dates)
+    for path, date in dates.items():
+        assert f"date: {date}" in by_path[path]
+
+
 def test_review_overdue_only_for_adrs_in_force(initialized):  # AC25
     w = initialized
     w.write_adr(2, "x", review_by="2000-01-01")

@@ -10,7 +10,12 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from ruamel.yaml.comments import CommentedMap
 
-from adrinaline.frontmatter import FrontmatterDateError, FrontmatterError, split
+from adrinaline.frontmatter import (
+    FrontmatterDateError,
+    FrontmatterError,
+    FrontmatterMissing,
+    split,
+)
 
 FILENAME_RE = re.compile(r"^(\d{4,})-([a-z0-9]+(?:-[a-z0-9]+)*)\.md$")
 
@@ -139,6 +144,29 @@ class Adr:
         return max(self.date, self.reviewed) if self.reviewed else self.date
 
 
+_NYGARD_STATUS = re.compile(
+    r"^#{1,6}[ \t]*Status[ \t]*\r?\n(?:[ \t]*\r?\n)*[ \t]*(\w+)", re.M | re.I
+)
+_ADR_TOOLS_DATE = re.compile(r"^Date:[ \t]*(\d{4}-\d{2}-\d{2})[ \t]*\r?$", re.M)
+# superseded is left out: `adr check` needs a `superseded-by` relation with it (status-mismatch)
+_HINTABLE_STATUSES = {s.value for s in Status} - {Status.SUPERSEDED}
+
+
+def _import_hint(text: str) -> str:
+    """What an adr-tools or Nygard file needs to become an ADR, read from its own header."""
+    status = _NYGARD_STATUS.search(text)
+    word = status[1].lower() if status else ""
+    date = _ADR_TOOLS_DATE.search(text)
+    try:
+        day = dt.date.fromisoformat(date[1]).isoformat() if date else "<YYYY-MM-DD>"
+    except ValueError:
+        day = "<YYYY-MM-DD>"
+    return (
+        f"add frontmatter with status: {word if word in _HINTABLE_STATUSES else '<status>'}"
+        f" and date: {day}"
+    )
+
+
 def parse_adr(path: Path, text: str) -> Adr:
     """Parse one ADR; `path` supplies the number and slug. Raises `AdrError` with code:
 
@@ -155,7 +183,14 @@ def parse_adr(path: Path, text: str) -> Adr:
     except FrontmatterDateError as exc:
         raise AdrError("bad-date", f"{path.name}: {exc}", path=str(path)) from exc
     except FrontmatterError as exc:
-        raise AdrError("no-frontmatter", f"{path.name}: {exc}", path=str(path)) from exc
+        # a BOM or blank line before a real `---` block is not an import: no hint
+        has_block = text.lstrip("\ufeff \t\r\n").startswith("---")
+        hint = (
+            f"; {_import_hint(text)}"
+            if isinstance(exc, FrontmatterMissing) and not has_block
+            else ""
+        )
+        raise AdrError("no-frontmatter", f"{path.name}: {exc}{hint}", path=str(path)) from exc
     try:
         front = Frontmatter.model_validate(dict(meta))
     except ValidationError as exc:
