@@ -13,12 +13,11 @@ Bug reports, feature requests and questions go to [GitHub Issues](https://github
 - **Commit messages** follow [Conventional Commits](https://www.conventionalcommits.org/). They decide the next version and the release notes, so `feat:`, `fix:` and `!` for breaking changes matter.
 - **ADRs.** Run `uv run adr for <path>` before changing a file and follow the decisions it lists. Cite them in a commit trailer (`ADR: 3`), or give `ADR-Exempt: <reason>` for a change to governed files that follows none. A decision that is expensive to reverse gets a new ADR (`uv run adr new`), which starts as `proposed`.
 - **Tests.** Every new feature and every bug fix comes with a test that fails without it. Coverage must stay at or above the floor in `pyproject.toml`.
-- **Checks.** The pull request must pass the same gate as CI. The Git hooks in `prek.toml` run it on commit and push (CI also runs `uv audit` and the tests on macOS); run them by hand with `prek run --all-files`.
+- **Checks.** The pull request must pass the same gate as CI. CI runs the commit-stage hooks of `prek.toml`; installed locally, they run on commit and the tests, ADR trailers and docs build run on push. Run them by hand with `uv run prek run --all-files`.
 
 The project uses Python 3.14 and [uv](https://docs.astral.sh/uv/). Set up with:
 
 ```sh
-uv sync              # development tools
-uv tool install prek # once per machine
-prek install         # Git hooks (prek.toml)
+uv sync                # development tools, including prek
+uv run prek install    # Git hooks (prek.toml)
 ```
