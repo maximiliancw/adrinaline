@@ -45,7 +45,7 @@ dev = [
     "pytest-xdist>=3.8.0",
     "ruff>=0.17.2",
     "ty>=0.0.92",
-    "zizmor==1.31.1",
+    "zizmor==1.32.0",
 ]
 release = ["commitizen>=4.19.3"]
 docs = [
