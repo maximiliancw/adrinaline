@@ -25,14 +25,16 @@ jobs:
           fetch-depth: 0  # cz check reads the PR's commits
           persist-credentials: false
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
-      - run: uv run zizmor --min-severity=low .github/workflows
+      # The commit-stage hooks of prek.toml: hygiene, ruff, ty, adr check, zizmor.
+      - run: uv run prek run --all-files --show-diff-on-failure
       - run: uv run cz check --rev-range "origin/$BASE_REF..HEAD"
         env:
           BASE_REF: ${{ github.base_ref }}
-      - run: uv run ruff check
-      - run: uv run ruff format --check
-      - run: uv run ty check
-      - run: uv run adr check --strict
+      # Dependabot cannot add ADR trailers, and a version bump records no decision.
+      - if: github.event.pull_request.user.login != 'dependabot[bot]'
+        run: uv run adr check --strict --diff "origin/$BASE_REF"
+        env:
+          BASE_REF: ${{ github.base_ref }}
       - run: uv audit
 
   docs:

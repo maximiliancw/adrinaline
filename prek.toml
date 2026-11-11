@@ -1,4 +1,4 @@
-# Git hooks for `prek` (https://prek.j178.dev) that mirror the CI gate. Install: `uv tool install prek && prek install`.
+# Git hooks for `prek` (https://prek.j178.dev); CI runs the commit stage too. Install: `uv run prek install`.
 # Local `uv run` hooks, not the tools' hook repos, so versions come from uv.lock as in CI.
 #:schema https://www.schemastore.org/prek.json
 
@@ -29,6 +29,7 @@ hooks = [
     { id = "zizmor", name = "zizmor", entry = "uv run zizmor --min-severity=low .github/workflows", language = "system", files = '^\.github/workflows/', pass_filenames = false },
     { id = "commitizen", name = "conventional commit message", entry = "uv run cz check --commit-msg-file", language = "system", stages = ["commit-msg"] },
     { id = "pytest", name = "pytest with coverage floor", entry = "uv run pytest -q --cov", language = "system", pass_filenames = false, stages = ["pre-push"] },
-    { id = "adr-trailers", name = "adr check: ADR trailers since origin/main", entry = "uv run adr check --strict --diff origin/main", language = "system", pass_filenames = false, stages = ["pre-push"] },
+    # Diff from the fork point, so commits on main since then are not counted as this branch's changes.
+    { id = "adr-trailers", name = "adr check: ADR trailers since origin/main", entry = "sh -c 'uv run adr check --strict --diff \"$(git merge-base origin/main HEAD)\"'", language = "system", pass_filenames = false, stages = ["pre-push"] },
     { id = "docs", name = "zensical build", entry = "uv run --group docs zensical build --clean --strict", language = "system", files = '^(docs/|src/|README\.md$|zensical\.toml$)', pass_filenames = false, stages = ["pre-push"] },
 ]
