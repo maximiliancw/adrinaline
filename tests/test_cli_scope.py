@@ -85,6 +85,25 @@ def test_check_diff_reports_untracked_new_file(initialized):
     assert "src/db/new.py" in paths
 
 
+def test_check_diff_ignores_changes_made_on_ref_after_the_branch_point(initialized):
+    scoped_repo(initialized)
+    initialized.commit_all()
+    initialized.git("switch", "-q", "-c", "feature")
+    initialized.git("switch", "-q", "main")
+    initialized.write("src/db/conn.py", "main moved\n")
+    initialized.commit_all()
+    initialized.git("switch", "-q", "feature")
+    assert initialized.adr("check", "--diff", "main", "--strict").code == 0
+
+
+def test_check_diff_rejects_unrelated_history(initialized):
+    scoped_repo(initialized)
+    initialized.commit_all()
+    lonely = initialized.git("commit-tree", "HEAD^{tree}", "-m", "unrelated").strip()
+    result = initialized.adr("check", "--diff", lonely, "--json")
+    assert result.code == 3 and result.json()["error"]["code"] == "bad-revision"
+
+
 def test_scope_flow_new_accept_for(initialized):  # AC19
     initialized.write("src/db/conn.py", "x\n")
     assert initialized.adr("new", "Pool", "--scope", "src/db/**").code == 0

@@ -200,7 +200,12 @@ def commits_in(root: Path, revs: str, files: bool = True) -> list[Commit]:
 
 def changed_files(root: Path, base: str) -> list[str]:
     verify_rev(root, base)
-    diff = run(["diff", "--name-only", base, "--"], root)
+    # From the merge-base, so commits on base after the branch point are not this change's;
+    # a plain diff against a commit (unlike `base...`) keeps uncommitted changes.
+    fork = run(["merge-base", base, "HEAD"], root)
+    if fork is None:
+        raise AdrError("bad-revision", f"{base} shares no history with HEAD", rev=base)
+    diff = run(["diff", "--name-only", fork.strip(), "--"], root)
     if diff is None:
         raise AdrError("bad-revision", f"cannot diff against {base}", rev=base)
     untracked = run(["ls-files", "--others", "--exclude-standard"], root) or ""
