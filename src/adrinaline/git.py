@@ -49,21 +49,30 @@ def _rel(root: Path, directory: Path) -> str | None:
 def numbers_on_refs(root: Path, directory: Path) -> dict[int, str]:
     """ADR numbers in `directory` on local branches and remote-tracking refs, each mapped to the
     first ref (in refname order) that has it. The current branch is skipped. `{}` if `directory`
-    is outside `root` or the refs cannot be listed."""
+    is outside `root` or the refs cannot be listed.
+
+    Refs pointing at the same commit share one `ls-tree` call, keyed by object id.
+    """
     rel = _rel(root, directory)
-    refs = run(["for-each-ref", "--format=%(refname:short)", "refs/heads", "refs/remotes"], root)
-    if rel is None or refs is None:
+    out = run(
+        ["for-each-ref", "--format=%(refname:short) %(objectname)", "refs/heads", "refs/remotes"],
+        root,
+    )
+    if rel is None or out is None:
         return {}
     # Exclude the current branch - we only care about numbers on OTHER branches
     current = run(["rev-parse", "--abbrev-ref", "HEAD"], root)
     current_branch = current.strip() if current else None
+    listings: dict[str, str] = {}
     found: dict[int, str] = {}
-    for ref in refs.split():
-        if current_branch and ref == current_branch:
+    for line in out.splitlines():
+        ref, _, sha = line.partition(" ")
+        if not ref or (current_branch and ref == current_branch):
             continue
-        listing = run(["ls-tree", "--name-only", ref, "--", f"{rel}/"], root) or ""
-        for line in listing.splitlines():
-            if match := FILENAME_RE.match(PurePosixPath(line).name):
+        if sha not in listings:
+            listings[sha] = run(["ls-tree", "--name-only", sha, "--", f"{rel}/"], root) or ""
+        for name in listings[sha].splitlines():
+            if match := FILENAME_RE.match(PurePosixPath(name).name):
                 found.setdefault(int(match[1]), ref)
     return found
 

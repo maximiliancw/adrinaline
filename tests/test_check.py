@@ -378,6 +378,16 @@ def test_fix_status_keeps_the_date(initialized):
     assert re.search(r'^date: "?2026-01-15"?$', text, re.M)
 
 
+def test_fix_creates_missing_template_parent_dir(ws):  # AC for io OSError/mkdir fix
+    ws.write(".adrinaline.toml", 'template = "nested/deep/tpl.md"\n')
+    ws.write_adr(1, "a")
+    assert not (ws.root / "nested").exists()
+    result = ws.adr("check", "--fix", "--json")
+    assert result.code == 0, result.err
+    assert (ws.root / "nested/deep/tpl.md").is_file()
+    assert "no-template" in {f["code"] for f in result.json()["fixed"]}
+
+
 def test_inverse_snake_keys_are_not_flagged():  # ADR 0003: inverses are derived, never stored
     front = "status: accepted\ndate: 2026-01-15\namended_by: [1]\ndependency_of: [1]\n"
     text = f"---\n{front}---\n# A\n"

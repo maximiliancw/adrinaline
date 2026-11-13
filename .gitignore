@@ -221,3 +221,7 @@ __marimo__/
 
 # Third-party reference renders for the brand mark; never commit
 assets/adrenaline-molecule-*.png
+
+# Local, uncommitted session state (agent plans, local ticket tracker)
+plans/
+.tickets/

@@ -31,7 +31,7 @@ Human output is coloured on a terminal; it is plain when stdout is not a TTY, wh
 | `accept REF` / `reject REF` / `deprecate REF` | `--force` allows any transition | set an ADR's status |
 | `review REF` | `--until DATE` also sets `review-by` | record that an ADR was reviewed today (`reviewed: <today>`) |
 | `supersede OLD --by NEW` | `--force` supersedes an ADR that is not accepted | mark OLD as superseded by NEW |
-| `link REF RELATION REF` / `unlink …` | `RELATION` is `amends`, `depends-on` or `relates-to` | add or remove a relation |
+| `link REF RELATION REF` / `unlink …` | `RELATION` is `amends`, `depends-on` or `relates-to` | add a relation (first ADR only), or remove one (`relates-to` wherever it is stored) |
 | `graph [REF]` | `--relation R...`, `--depth N` (default: unlimited), `--reverse`, `--format text\|mermaid\|dot\|json`, `--rank` (a usage error with `mermaid` or `dot` unless `--json`) | render the ADR graph |
 | `renumber REF --to N` | | give an ADR a new number and update references |
 | `log REF` | | show the git history of an ADR |

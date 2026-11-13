@@ -1,5 +1,6 @@
 import datetime as dt
 import stat
+import time
 from pathlib import Path
 
 import pytest
@@ -125,6 +126,45 @@ def test_create_file_skips_taken_numbers(tmp_path):
     (tmp_path / "0003-other.md").write_text("x")
     path = repo.create_file(tmp_path, 3, "mine", "text")
     assert path.name == "0004-mine.md" and path.read_text() == "text"
+
+
+def test_create_file_reclaims_a_stale_reservation(tmp_path):
+    """A `.NNNN.tmp` older than an hour is a crashed/killed process, not a live race."""
+    import os
+
+    stale = tmp_path / ".0001.tmp"
+    stale.touch()
+    old = time.time() - 7200
+    os.utime(stale, (old, old))
+    path = repo.create_file(tmp_path, 1, "mine", "text")
+    assert path.name == "0001-mine.md" and path.read_text() == "text"
+    assert not stale.exists()
+
+
+def test_create_file_skips_a_fresh_reservation(tmp_path):
+    """A recent `.NNNN.tmp` looks like a live concurrent `new`: the number is skipped."""
+    (tmp_path / ".0001.tmp").touch()
+    path = repo.create_file(tmp_path, 1, "mine", "text")
+    assert path.name == "0002-mine.md"
+
+
+def test_create_file_retries_when_reservation_vanishes_before_stat(tmp_path, monkeypatch):
+    """If the `.NNNN.tmp` marker is removed between our existence check (`FileExistsError` on
+    `touch`) and the follow-up `stat`, that's another process's cleanup finishing mid-race, not
+    a fresh or stale reservation: the number must be retried, not skipped."""
+    stale = tmp_path / ".0001.tmp"
+    stale.touch()
+    original_stat = Path.stat
+
+    def vanish_on_stat(self, *args, **kwargs):
+        if self == stale:
+            stale.unlink()
+            raise FileNotFoundError
+        return original_stat(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", vanish_on_stat)
+    path = repo.create_file(tmp_path, 1, "mine", "text")
+    assert path.name == "0001-mine.md" and path.read_text() == "text"
 
 
 def test_transition_rules():

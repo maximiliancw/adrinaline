@@ -869,6 +869,8 @@ def main(
         return args.func(Ctx(args, loc, out, cwd)) or EXIT_OK
     except AdrError as exc:
         return error(exc, args.json)
+    except OSError as exc:
+        return error(AdrError("io", str(exc)), args.json)
 
 
 def run() -> None:
