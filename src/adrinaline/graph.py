@@ -56,6 +56,7 @@ class AdrGraph:
             for n in adr.relations.get("superseded-by", [])
         ]
         self.edges = list(dict.fromkeys(edges))
+        self._superseded = {e.dst for e in self.edges if e.relation == "supersedes"}
 
     def rank(
         self, damping: float = 0.85, tolerance: float = 1e-9, max_iterations: int = 100
@@ -114,12 +115,12 @@ class AdrGraph:
         return {name: sorted(numbers) for name, numbers in sorted(found.items())}
 
     def in_force(self) -> list[Adr]:
-        """Accepted ADRs that nothing supersedes, by number. Judged from the edges, so a
-        one-sided `supersedes` already counts."""
+        """Accepted ADRs that nothing supersedes, by number. Judged from the edges (cached once
+        per graph as `_superseded`), so a one-sided `supersedes` already counts."""
         return [
             adr
             for number, adr in sorted(self.nodes.items())
-            if adr.status is Status.ACCEPTED and not self.related(number).get("superseded-by")
+            if adr.status is Status.ACCEPTED and number not in self._superseded
         ]
 
     def successor(self, number: int) -> int:

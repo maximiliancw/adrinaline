@@ -10,6 +10,7 @@ nav = [
   { "Home" = "index.md" },
   { "CLI reference" = "cli.md" },
   { "Specification" = "SPEC.md" },
+  { "Decisions" = "adr.md" },
   { "API reference" = "reference.md" },
 ]
 

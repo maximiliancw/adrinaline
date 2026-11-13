@@ -161,6 +161,33 @@ def test_missing_directory_is_a_domain_error(ws):
     assert result.code == 3 and result.json()["error"]["code"] == "no-adr-dir"
 
 
+def test_filesystem_error_is_reported_as_io_json(tmp_path, monkeypatch, capsys):  # AC for io
+    from conftest import ENV
+
+    from adrinaline import cli, repo
+
+    def boom(path, text):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(repo, "atomic_write", boom)
+    assert cli.main(["init", "--json"], cwd=tmp_path, env=ENV) == 3
+    err = json.loads(capsys.readouterr().out)["error"]
+    assert err == {"code": "io", "message": "disk full", "details": {}}
+
+
+def test_filesystem_error_is_reported_as_io_text(tmp_path, monkeypatch, capsys):  # AC for io
+    from conftest import ENV
+
+    from adrinaline import cli, repo
+
+    def boom(path, text):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(repo, "atomic_write", boom)
+    assert cli.main(["init"], cwd=tmp_path, env=ENV) == 3
+    assert "adr: io: disk full" in capsys.readouterr().err
+
+
 def test_outside_git(tmp_path):
     from conftest import Workspace
 

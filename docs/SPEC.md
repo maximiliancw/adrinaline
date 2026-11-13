@@ -190,8 +190,13 @@ with `bad-template` and writes nothing.
   `os.replace`, so a crash never leaves a half-written ADR.
 - Rewrites change only the keys being edited; ruamel round-trip keeps the rest
   byte-stable where possible.
-- New ADR files are created with exclusive create (`O_EXCL`); if the number is
-  taken by a concurrent process, the next free number is tried.
+- New ADR files reserve their number with an exclusive-create (`O_EXCL`)
+  marker file first. If the marker already exists and is older than an hour,
+  it is treated as abandoned by a crashed or killed process: it is removed
+  and its number is reused. If the marker is fresh, a concurrent process is
+  assumed to hold the number and the next free number is tried instead. The
+  ADR file itself is then written the same way as any other write (temp file
+  + `os.replace`), not with `O_EXCL`.
 - Block-style YAML lists are re-indented (and flow lists kept) on rewrite; this
   formatting change is accepted.
 
@@ -231,10 +236,12 @@ Wherever a command takes an ADR reference `REF`:
   `"Use PostgreSQL"`, `use-postgresql` and `postgres` all find
   `0007-use-postgresql.md`.
 - Leading/trailing whitespace is stripped.
-- Zero matches: error `not-found`; its message and `details.candidates` name
-  up to three close slugs (`difflib`, cutoff 0.6), so a typo is never resolved
-  silently. More than one: error `ambiguous`, listing candidates. A duplicated
-  number is `ambiguous` too.
+- Zero matches: error `not-found`; its message names up to three close
+  matches (`difflib`, cutoff 0.6) without the `.md` suffix, so a typo is never
+  resolved silently, while `details.candidates` lists the same matches as full
+  ADR filenames (`NNNN-slug.md`). More than one: error `ambiguous`, naming the
+  matching ADRs' filenames (`NNNN-slug.md`), suffix included, in both the
+  message and `details.candidates`. A duplicated number is `ambiguous` too.
 
 ## 7. Status lifecycle
 
@@ -266,6 +273,10 @@ ISO 8601).
   `relates-to` is stored once, on the ADR where it was added.
 - Exception: `superseded-by` is also stored on the superseded ADR, so a reader
   of that file alone sees what replaced it. `adr supersede` writes both sides.
+- `adr unlink … relates-to …` removes the edge wherever it is stored (either
+  ADR, since `relates-to` is stored once on whichever one declared it); the
+  other relations are stored only on the first ADR, so `unlink` touches that
+  file alone.
 - All inverses are derived by the graph and appear in `show`, `graph` and
   JSON output as if stored.
 - `supersedes` may only target an `accepted` ADR (`--force` overrides).
@@ -328,7 +339,7 @@ Global flags: `--json` (machine output), `--dir PATH` (overrides §5),
 | `adr index` | Print a Markdown table (number with link, title, status, date) for pasting into docs. |
 | `adr accept REF [--force]`, `adr reject REF [--force]`, `adr deprecate REF [--force]` | Status transitions (§7); `--force` allows any transition. |
 | `adr supersede OLD --by NEW [--force]` | Add `NEW supersedes OLD`, mark OLD `superseded`. `--force` allows an OLD that is not `accepted`. |
-| `adr link REF RELATION REF` / `adr unlink REF RELATION REF` | Add/remove `amends`, `depends-on` or `relates-to` on the first ADR only (§8). |
+| `adr link REF RELATION REF` / `adr unlink REF RELATION REF` | Add/remove `amends`, `depends-on` or `relates-to` on the first ADR only; `unlink … relates-to …` removes it wherever it is stored (§8). |
 | `adr review REF [--until DATE]` | Record a review: set `reviewed` to today and, with `--until`, `review-by` to DATE (`bad-date` if not ISO). Any status. Prints the ADR by number and title with its review date; `--json` prints the ADR object. |
 | `adr drift [REF]...` | Churn per ADR in force that has a `scope` (§8), or only for the given REFs: one line per ADR, highest churn first: number, title, commits and distinct files since the baseline, and the date and subject of the last commit. A closing line counts the ADRs in force without a `scope` (omitted when there are none). `--json` is a list of `{"number", "id", "title", "baseline", "review-by", "revisit-if", "commits", "files": [...], "last": {"commit", "date", "subject"} \| null}`. Fails with `no-git` outside a repository. |
 | `adr graph [REF] [--relation R]... [--depth N] [--reverse] [--rank] [--format text\|mermaid\|dot\|json]` | Render the graph: the whole set, or the subgraph reachable from REF (`--reverse` follows inverse edges, by default only `depends-on` and `amends`, giving the impact set). `text` (default) is an indented, deduplicated tree; `mermaid` renders in GitHub/GitLab Markdown; `dot` feeds Graphviz; `json` is `{"nodes": [{"number", "id", "slug", "title", "status", "date", "tags", "path"}], "edges": [{"from", "to", "relation"}]}`. Node styling encodes status in mermaid and dot. `--rank` orders the nodes by rank: text output becomes a flat list, one `rank  NNNN title [status]` line per node, and JSON nodes gain a `rank` value; `--rank` with `mermaid` or `dot` is a usage error unless `--json` is given. |
@@ -350,9 +361,10 @@ paths as one JSON document.
 
 - Next number = 1 + the maximum of (a) numbers in the working tree and (b)
   numbers in the ADR directory on every local branch and remote-tracking ref
-  (`git for-each-ref refs/heads refs/remotes` + `git ls-tree --name-only`).
-  Numbers used only on other refs are reported as a note: "skipped 0007,
-  taken on origin/feature-x".
+  except the current branch (`git for-each-ref refs/heads refs/remotes` +
+  `git ls-tree --name-only`, one `ls-tree` per distinct commit so refs
+  sharing a commit cost one listing). Numbers used only on other refs are
+  reported as a note: "skipped 0007, taken on origin/feature-x".
 - No network access: refs are only as fresh as the last fetch.
 - Outside git, only (a) applies.
 - Collisions that still happen (two branches merged) are found by `adr check`
@@ -380,7 +392,7 @@ Each finding has a stable `code`, a `severity` (`error`, `warning` or
 | `self-relation` | error | ADR relates to itself |
 | `cycle` | error | Cycle in `supersedes` or `depends-on` |
 | `status-mismatch` | error | `superseded-by` set but status ≠ `superseded`, or vice versa |
-| `number-gap` | warning | A number between 1 and the maximum is missing and not present on any local branch or remote-tracking ref (§10; refs are not consulted with `--at`) |
+| `number-gap` | warning | A number between 1 and the maximum is missing and not present on any local branch or remote-tracking ref other than the current one (§10; refs are not consulted with `--at`) |
 | `no-template` | warning | `.template.md` missing |
 | `bad-scope` | error | `scope` is not a list of relative glob strings |
 | `unknown-relation-key` | warning | Frontmatter uses a snake_case key (`superseded_by`, `depends_on`, `relates_to`, `review_by`, `revisit_if`); the hyphenated key is meant |

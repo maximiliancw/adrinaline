@@ -199,3 +199,26 @@ def test_working_changes_skips_old_name_of_edited_rename(ws):
     ws.git("mv", "src/db/a.py", "src/db/b.py")
     ws.write("src/db/b.py", "b\n")  # status "RM new\0old\0"
     assert git.working_changes(ws.root) == ["src/db/b.py"]
+
+
+def test_numbers_on_refs_shares_one_ls_tree_per_commit(monkeypatch, tmp_path):
+    """Two refs pointing at the same commit must not each cost an `ls-tree` call."""
+    from adrinaline import git
+
+    calls: list[str] = []
+
+    def fake_run(args, root, stdin=None):
+        if "for-each-ref" in args:
+            return "feature-a abc123\nfeature-b abc123\n"
+        if "rev-parse" in args:
+            return "main\n"
+        if "ls-tree" in args:
+            calls.append(args[2])  # the <commit> argument
+            return "docs/adr/0003-x.md\n"
+        raise AssertionError(f"unexpected call: {args}")
+
+    monkeypatch.setattr(git, "run", fake_run)
+    monkeypatch.setattr(git, "_rel", lambda root, d: "docs/adr")
+    found = git.numbers_on_refs(tmp_path, tmp_path / "docs/adr")
+    assert calls == ["abc123"]  # one ls-tree for both refs
+    assert found == {3: "feature-a"}  # first ref in refname order

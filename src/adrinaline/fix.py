@@ -66,6 +66,7 @@ def apply(s: AdrSet, loc: Location) -> list[Fix]:
     for adr in changed.values():
         repo.save(adr)
     if not loc.template.is_file():
+        loc.template.parent.mkdir(parents=True, exist_ok=True)
         repo.atomic_write(loc.template, repo.data_text("template.md"))
         fixes.append(Fix("no-template", str(loc.template), "recreated from the bundled template"))
     return fixes

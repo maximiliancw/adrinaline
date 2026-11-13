@@ -62,6 +62,14 @@ def test_in_force_and_successor():
     assert g.successor(2) == 3 and g.successor(3) == 3
 
 
+def test_in_force_counts_a_one_sided_superseded_by():
+    # Only the superseded ADR stores superseded-by; the new one has no forward supersedes.
+    g = AdrGraph(
+        parse_all([adr(1, "a", "A", "superseded", superseded_by=[2]), adr(2, "b", "B")]).adrs
+    )
+    assert [a.number for a in g.in_force()] == [2]
+
+
 def test_missing_targets_render_as_missing():
     g = AdrGraph(parse_all([adr(1, "a", "A", depends_on=[9])]).adrs)
     assert g.label(9) == "0009 (missing)" and g.status(9) == "missing"

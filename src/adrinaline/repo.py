@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import tempfile
+import time
 import tomllib
 import unicodedata
 from collections.abc import Iterable, Iterator, Mapping
@@ -337,6 +338,9 @@ def next_number(loc: Location) -> tuple[int, dict[int, str]]:
     return number, skipped
 
 
+_STALE_RESERVATION = 3600  # seconds; a crashed/killed `new` leaves a .NNNN.tmp behind forever
+
+
 def _taken(directory: Path, number: int) -> bool:
     return any(directory.glob(f"{number:04d}-*.md"))
 
@@ -347,12 +351,19 @@ def create_file(directory: Path, number: int, slug: str, text: str) -> Path:
             number += 1
             continue
         path = directory / f"{number:04d}-{slug}.md"
+        tmp = directory / f".{number:04d}.tmp"
         try:
             # Reserve the number with O_EXCL first
-            tmp = directory / f".{number:04d}.tmp"
             tmp.touch(exist_ok=False)
         except FileExistsError:
-            # Race: another process took this number
+            try:
+                age = time.time() - tmp.stat().st_mtime
+            except FileNotFoundError:
+                continue  # race: the reservation is already gone, retry this number
+            if age > _STALE_RESERVATION:
+                tmp.unlink(missing_ok=True)  # abandoned by a crashed/killed process: reclaim it
+                continue
+            # Race: another live process took this number
             number += 1
             continue
         try:
