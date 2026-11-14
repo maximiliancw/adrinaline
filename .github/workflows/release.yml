@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: release
-  cancel-in-progress: false
+  cancel-in-progress: true  # a release takes ~17 min (approval wait); a newer push must supersede the in-flight run, not queue behind it
 
 jobs:
   build:
