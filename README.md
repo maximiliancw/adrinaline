@@ -8,6 +8,8 @@
 [![CI](https://github.com/maximiliancw/adrinaline/actions/workflows/ci.yml/badge.svg?event=pull_request)](https://github.com/maximiliancw/adrinaline/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/adrinaline)](https://pypi.org/project/adrinaline/)
 [![Python](https://img.shields.io/pypi/pyversions/adrinaline)](https://pypi.org/project/adrinaline/)
+[![Downloads](https://img.shields.io/pypi/dm/adrinaline)](https://pypi.org/project/adrinaline/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/maximiliancw/adrinaline/blob/main/LICENSE)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/maximiliancw/adrinaline/badge)](https://scorecard.dev/viewer/?uri=github.com/maximiliancw/adrinaline)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16522/badge)](https://www.bestpractices.dev/projects/16522)
 
